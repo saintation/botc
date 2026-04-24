@@ -49,23 +49,23 @@ function App() {
             {loading && (
               <div className="flex flex-col items-center justify-center py-10 gap-3">
                  <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Verifying Identity...</p>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">본인 인증 확인 중...</p>
               </div>
             )}
 
             {(authError || syncError) && (
               <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl mb-4 shadow-inner">
-                <p className="text-rose-500 text-xs font-bold uppercase tracking-tight mb-2">Sync Connection Lost</p>
+                <p className="text-rose-500 text-xs font-bold uppercase tracking-tight mb-2">동기화 연결 끊김</p>
                 <p className="text-[11px] text-slate-400 mb-4">{authError?.message || syncError?.message}</p>
-                <button onClick={resetSession} className="text-[10px] font-black text-rose-400 uppercase tracking-widest border border-rose-500/30 px-3 py-1.5 rounded-lg hover:bg-rose-500/10 transition-all">Force Session Wipe</button>
+                <button onClick={resetSession} className="text-[10px] font-black text-rose-400 uppercase tracking-widest border border-rose-500/30 px-3 py-1.5 rounded-lg hover:bg-rose-500/10 transition-all">세션 강제 초기화</button>
               </div>
             )}
             
             {user && role && roomId && !roomState && (
                <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
                   <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sky-400 font-medium tracking-wide animate-pulse uppercase tracking-widest">Synchronizing...</p>
-                  <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors uppercase tracking-widest text-[10px] font-black">Abort Sync</button>
+                  <p className="text-sky-400 font-medium tracking-wide animate-pulse">마도서 기록 복구 중...</p>
+                  <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors uppercase tracking-widest text-[10px] font-black">기록 삭제하고 처음으로</button>
                </div>
             )}
 
@@ -80,7 +80,7 @@ function App() {
                     onClick={() => setRole('st')}
                     className="text-slate-600 hover:text-amber-500/80 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mx-auto"
                   >
-                    <span className="opacity-50 text-[9px]">ST MODE (ADMIN ONLY)</span>
+                    <span className="opacity-50">스토리텔러 관리자 모드</span>
                   </button>
                 </div>
               </div>
@@ -111,21 +111,21 @@ function App() {
                        )}>
                          {roomState.winner === 'good' ? 'Good Wins' : 'Evil Wins'}
                        </h2>
-                       <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Final Verdict</p>
+                       <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">게임 종료</p>
                     </div>
 
                     <div className="py-10 bg-slate-950/50 rounded-[2.5rem] border border-slate-800 shadow-inner px-4">
                        <p className="text-sm text-slate-300 font-medium leading-relaxed italic">
                           {roomState.winner === 'good' 
-                            ? "The Demon is slain. Eternal peace returns to the village." 
-                            : "Only the shadows remain. The village has fallen to darkness."}
+                            ? "악마가 처단되었습니다. 마을에 다시 평화가 찾아왔습니다." 
+                            : "그림자가 마을을 삼켰습니다. 악의 승리입니다."}
                        </p>
                     </div>
 
                     <Button onClick={resetSession} variant="primary" size="lg" className={cn(
                       "w-full font-black uppercase tracking-widest h-16 shadow-xl border-transparent",
                       roomState.winner === 'good' ? "bg-sky-500 text-slate-950 hover:bg-sky-400" : "bg-rose-600 text-white hover:bg-rose-500"
-                    )}>New Grimoire</Button>
+                    )}>새로운 마도서 시작</Button>
                  </div>
               </div>
             )}
@@ -136,7 +136,7 @@ function App() {
               onClick={resetSession}
               className="mt-6 text-slate-600 text-[9px] font-black uppercase tracking-widest hover:text-slate-300 transition-colors flex items-center gap-1.5"
             >
-              <span>←</span> Change Role
+              <span>←</span> 역할 변경
             </button>
           )}
         </div>
@@ -148,7 +148,7 @@ function App() {
           onClick={handleGlobalReset}
           className="fixed bottom-4 right-4 bg-rose-950/40 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/30 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all z-[100] backdrop-blur"
         >
-          Nuclear Reset
+          방 전체 초기화
         </button>
       )}
     </div>
