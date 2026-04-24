@@ -146,8 +146,22 @@ export function GrimoireSetup() {
         .slice(0, 3)
         .map(r => r.id);
 
-      const evilInfo = { demonUid, minionUids, bluffs: demonBluffs };
-      await updateSecretState({ players: newSecretPlayers, evilInfo } as any);
+      // Distribute Evil Info to each evil player's node
+      const demonName = roomState.players[demonUid]?.name || "";
+      const minionNames = minionUids.map(uid => roomState.players[uid]?.name || "");
+
+      Object.keys(newSecretPlayers).forEach(uid => {
+        const p = newSecretPlayers[uid];
+        if (p.alignment === 'evil') {
+           p.evilTeamInfo = {
+             demonName,
+             minionNames,
+             bluffs: demonBluffs
+           };
+        }
+      });
+
+      await updateSecretState({ players: newSecretPlayers } as any);
 
       const newPublicPlayers = { ...roomState.players };
       orderedPlayers.forEach((p, index) => {

@@ -43,7 +43,12 @@ export interface SecretPlayer {
   isDrunk: boolean;
   isPoisoned: boolean;
   bluffs: RoleType[]; 
-  messageHistory?: string[]; // Log of all received messages
+  messageHistory?: string[];
+  evilTeamInfo?: {
+    demonName: string;
+    minionNames: string[];
+    bluffs: RoleType[];
+  } | null;
   isUsed?: boolean; 
   isRedHerring?: boolean; 
 }
