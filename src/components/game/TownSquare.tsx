@@ -165,8 +165,8 @@ export function TownSquare() {
                 )}
 
                 {isDead && hasGhostVote && (
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full border-2 border-slate-950 flex items-center justify-center shadow-lg animate-pulse">
-                    <span className="text-xs text-slate-950 font-black italic">!</span>
+                  <div className="absolute -top-3 -right-3 w-8 h-8 bg-amber-500 rounded-full border-[3px] border-slate-950 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-bounce z-30">
+                    <span className="text-sm text-slate-950 font-black italic">!</span>
                   </div>
                 )}
               </div>
