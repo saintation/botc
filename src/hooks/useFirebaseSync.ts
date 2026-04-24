@@ -36,7 +36,17 @@ export function useGameData(roomId: string | null) {
     await update(roomRef, updates);
   };
 
-  return { error, updatePublicState };
+  const resetRoom = async () => {
+    if (!roomId) return;
+    const publicRef = ref(database, `public/rooms/${roomId}`);
+    const secretRef = ref(database, `secret/rooms/${roomId}`);
+    
+    // Completely wipe room data
+    await set(publicRef, null);
+    await set(secretRef, null);
+  };
+
+  return { error, updatePublicState, resetRoom };
 }
 
 // Hook for ST to manage all secret data

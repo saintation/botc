@@ -12,17 +12,22 @@ function App() {
   const { user, loading, error: authError } = useAuth()
   const { roomId, roomState, role, setRole, setRoomId } = useGameStore()
 
-  const { error: syncError } = useGameData(roomId)
-
-  const setRoleLocal = (newRole: 'st' | 'player' | null) => {
-    setRole(newRole);
-  };
+  // Core Sync: Listen for game data whenever roomId is present
+  const { error: syncError, resetRoom } = useGameData(roomId)
 
   const resetSession = () => {
     setRole(null);
     setRoomId(null);
   };
 
+  const handleGlobalReset = async () => {
+    if (window.confirm("주의: 방의 모든 기록이 삭제되며 모든 플레이어가 튕겨나갑니다. 정말 초기화하시겠습니까?")) {
+       await resetRoom();
+       resetSession();
+    }
+  };
+
+  // Game Phases
   const isDayPhase = roomState?.status === 'day' || roomState?.status === 'voting';
   const isNightPhase = roomState?.status === 'night';
   const gameStarted = roomState && roomState.status !== 'lobby' && roomState.status !== 'setup';
@@ -59,8 +64,8 @@ function App() {
             {user && role && roomId && !roomState && (
                <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
                   <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sky-400 font-bold text-sm uppercase tracking-widest animate-pulse">Synchronizing Grimoire...</p>
-                  <button onClick={resetSession} className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-12 hover:text-white transition-colors">Abort & Reset</button>
+                  <p className="text-sky-400 font-medium tracking-wide animate-pulse">마도서 동기화 중...</p>
+                  <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors">기록 삭제하고 처음으로 돌아가기</button>
                </div>
             )}
 
@@ -72,7 +77,7 @@ function App() {
 
                 <div className="pt-6 border-t border-slate-800/30">
                   <button 
-                    onClick={() => setRoleLocal('st')}
+                    onClick={() => setRole('st')}
                     className="text-slate-600 hover:text-amber-500/80 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mx-auto"
                   >
                     <span className="opacity-50">ST MODE (ADMIN ONLY)</span>
@@ -104,7 +109,8 @@ function App() {
                  </div>
               </div>
             )}
-            </div>          
+          </div>
+          
           {role && (!roomState || roomState.status === 'lobby' || roomState.status === 'setup') && (
             <button 
               onClick={resetSession}
@@ -115,6 +121,16 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Admin Reset Button (Nuclear Reset) */}
+      {role === 'st' && roomId && (
+        <button 
+          onClick={handleGlobalReset}
+          className="fixed bottom-4 right-4 bg-rose-950/40 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/30 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all z-[100] backdrop-blur"
+        >
+          Nuclear Reset
+        </button>
+      )}
     </div>
   )
 }
