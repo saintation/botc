@@ -7,12 +7,12 @@ import { TownSquare } from './components/game/TownSquare'
 import { useGameStore } from './store/gameStore'
 import { useGameData } from './hooks/useFirebaseSync'
 import { Button } from './components/ui/Button'
+import { cn } from './lib/utils/cn'
 
 function App() {
   const { user, loading, error: authError } = useAuth()
   const { roomId, roomState, role, setRole, setRoomId } = useGameStore()
 
-  // Core Sync: Listen for game data whenever roomId is present
   const { error: syncError, resetRoom } = useGameData(roomId)
 
   const resetSession = () => {
@@ -64,8 +64,8 @@ function App() {
             {user && role && roomId && !roomState && (
                <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
                   <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sky-400 font-medium tracking-wide animate-pulse">마도서 동기화 중...</p>
-                  <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors">기록 삭제하고 처음으로 돌아가기</button>
+                  <p className="text-sky-400 font-medium tracking-wide animate-pulse uppercase tracking-widest">Synchronizing...</p>
+                  <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors uppercase tracking-widest text-[10px] font-black">Abort Sync</button>
                </div>
             )}
 
@@ -80,7 +80,7 @@ function App() {
                     onClick={() => setRole('st')}
                     className="text-slate-600 hover:text-amber-500/80 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mx-auto"
                   >
-                    <span className="opacity-50">ST MODE (ADMIN ONLY)</span>
+                    <span className="opacity-50 text-[9px]">ST MODE (ADMIN ONLY)</span>
                   </button>
                 </div>
               </div>
@@ -95,17 +95,37 @@ function App() {
             {/* Victory Screen */}
             {roomState?.status === 'end' && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-6 animate-fade-in">
-                 <div className="bg-slate-900 border-2 border-amber-500/50 p-10 rounded-3xl shadow-[0_0_50px_rgba(245,158,11,0.2)] text-center max-w-sm w-full space-y-6 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
-                    <h2 className="text-4xl font-black text-amber-500 uppercase tracking-tighter italic italic-none font-serif">Game Concluded</h2>
-                    <p className="text-slate-400 text-sm font-medium leading-relaxed">악마가 처형되었거나 마을의 모든 위협이 사라졌습니다.</p>
-
-                    <div className="py-8 bg-slate-950/50 rounded-2xl border border-slate-800 shadow-inner">
-                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">Final Verdict</p>
-                       <p className="text-3xl font-black text-white uppercase tracking-widest">Victory</p>
+                 <div className={cn(
+                   "bg-slate-900 border-2 p-10 rounded-[3rem] shadow-2xl text-center max-w-sm w-full space-y-8 relative overflow-hidden",
+                   roomState.winner === 'good' ? "border-sky-500/50 shadow-sky-500/20" : "border-rose-600/50 shadow-rose-600/20"
+                 )}>
+                    <div className={cn(
+                      "absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r",
+                      roomState.winner === 'good' ? "from-transparent via-sky-400 to-transparent" : "from-transparent via-rose-600 to-transparent"
+                    )}></div>
+                    
+                    <div className="space-y-2">
+                       <h2 className={cn(
+                         "text-5xl font-black uppercase tracking-tighter italic font-serif leading-none",
+                         roomState.winner === 'good' ? "text-sky-400" : "text-rose-600"
+                       )}>
+                         {roomState.winner === 'good' ? 'Good Wins' : 'Evil Wins'}
+                       </h2>
+                       <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Final Verdict</p>
                     </div>
 
-                    <Button onClick={resetSession} variant="primary" size="lg" className="w-full font-black uppercase tracking-widest shadow-xl">New Grimoire</Button>
+                    <div className="py-10 bg-slate-950/50 rounded-[2.5rem] border border-slate-800 shadow-inner px-4">
+                       <p className="text-sm text-slate-300 font-medium leading-relaxed italic">
+                          {roomState.winner === 'good' 
+                            ? "The Demon is slain. Eternal peace returns to the village." 
+                            : "Only the shadows remain. The village has fallen to darkness."}
+                       </p>
+                    </div>
+
+                    <Button onClick={resetSession} variant="primary" size="lg" className={cn(
+                      "w-full font-black uppercase tracking-widest h-16 shadow-xl border-transparent",
+                      roomState.winner === 'good' ? "bg-sky-500 text-slate-950 hover:bg-sky-400" : "bg-rose-600 text-white hover:bg-rose-500"
+                    )}>New Grimoire</Button>
                  </div>
               </div>
             )}

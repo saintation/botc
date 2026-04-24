@@ -107,13 +107,37 @@ export function DayPhase({ isST }: { isST: boolean }) {
     if (!isST) return;
     const updates: Record<string, any> = {};
     const targetUid = roomState.executionTargetUid;
+    const targetSecret = targetUid ? secretState?.players[targetUid] : null;
+
     if (targetUid) {
        updates[`public/rooms/${roomId}/players/${targetUid}/isDead`] = true;
        updates[`public/rooms/${roomId}/players/${targetUid}/hasGhostVote`] = true;
        updates[`public/rooms/${roomId}/lastExecutedUid`] = targetUid;
+
+       // SAINT LOGIC (Scene 5): If Saint is executed, evil wins.
+       if (targetSecret?.character === 'saint' && !targetSecret.isPoisoned && !targetSecret.isDrunk) {
+          updates[`public/rooms/${roomId}/status`] = 'end';
+          updates[`public/rooms/${roomId}/winner`] = 'evil';
+          await update(ref(database), updates);
+          return;
+       }
     } else {
        updates[`public/rooms/${roomId}/lastExecutedUid`] = null;
     }
+
+    // MAYOR WIN CONDITION (Scene 6): 3 alive, no execution, Mayor alive
+    const aliveCount = players.filter(p => !p.isDead && p.uid !== targetUid).length;
+    const isMayorAlive = players.some(p => !p.isDead && p.uid !== targetUid && secretState?.players[p.uid]?.character === 'mayor');
+    
+    if (!targetUid && aliveCount === 3 && isMayorAlive) {
+       if (window.confirm("생존자가 3명이며 시장(Mayor)이 생존해 있습니다. 선의 진영 승리로 게임을 종료할까요?")) {
+          updates[`public/rooms/${roomId}/status`] = 'end';
+          updates[`public/rooms/${roomId}/winner`] = 'good';
+          await update(ref(database), updates);
+          return;
+       }
+    }
+
     updates[`public/rooms/${roomId}/status`] = 'night';
     updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
     updates[`public/rooms/${roomId}/highestVotes`] = 0;

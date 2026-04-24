@@ -133,11 +133,16 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
+  // 3. 승리 조건 체크 (Scenario Scene 6)
+  const finalAliveCount = Object.values(newPublicState.players).filter(p => !p.isDead).length;
   const currentImp = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp' && !newPublicState.players[_].isDead);
+  
   if (!currentImp) {
     newPublicState.status = 'end';
-  } else if (aliveCount <= 2) {
+    newPublicState.winner = 'good';
+  } else if (finalAliveCount <= 2) {
     newPublicState.status = 'end';
+    newPublicState.winner = 'evil';
   }
 
   newSecretState.nightActions = {};
