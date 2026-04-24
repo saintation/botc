@@ -30,7 +30,7 @@ const TROUBLE_BREWING_ROLES: { id: RoleType; name: string; align: Alignment; typ
   { id: 'imp', name: '임프', align: 'evil', type: 'demon' },
 ];
 
-const GET_PROPORTIONS = (count: number) => {
+const GET_BASE_PROPORTIONS = (count: number) => {
   if (count === 5) return { townsfolk: 3, outsider: 0, minion: 1, demon: 1 };
   if (count === 6) return { townsfolk: 3, outsider: 1, minion: 1, demon: 1 };
   if (count >= 7 && count <= 9) return { townsfolk: 5, outsider: count - 7, minion: 1, demon: 1 };
@@ -46,6 +46,7 @@ export function GrimoireSetup() {
 
   const [orderedPlayers, setOrderedPlayers] = useState<{ uid: string; name: string }[]>([]);
   const [assignedRoles, setAssignedRoles] = useState<Record<string, RoleType>>({});
+  const [redHerringUid, setRedHerringUid] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -66,8 +67,18 @@ export function GrimoireSetup() {
     setOrderedPlayers([...orderedPlayers].sort(() => Math.random() - 0.5));
   };
 
+  // BARON LOGIC included in proportions
+  const getProportions = () => {
+    const base = GET_BASE_PROPORTIONS(orderedPlayers.length);
+    const hasBaron = Object.values(assignedRoles).includes('baron');
+    if (hasBaron) {
+       return { ...base, townsfolk: Math.max(0, base.townsfolk - 2), outsider: base.outsider + 2 };
+    }
+    return base;
+  };
+
   const handleRandomRoles = () => {
-    const props = GET_PROPORTIONS(orderedPlayers.length);
+    const props = getProportions();
     const townsfolks = TROUBLE_BREWING_ROLES.filter(r => r.type === 'townsfolk').sort(() => Math.random() - 0.5);
     const outsiders = TROUBLE_BREWING_ROLES.filter(r => r.type === 'outsider').sort(() => Math.random() - 0.5);
     const minions = TROUBLE_BREWING_ROLES.filter(r => r.type === 'minion').sort(() => Math.random() - 0.5);
@@ -87,8 +98,13 @@ export function GrimoireSetup() {
 
   const handleStartGame = async () => {
     if (!roomId || !roomState) return;
-    setLoading(true);
+    const hasFortuneTeller = Object.values(assignedRoles).includes('fortune_teller');
+    if (hasFortuneTeller && !redHerringUid) {
+       alert("점쟁이가 있으므로 레드헤링(거짓 악마)을 반드시 지정해야 합니다.");
+       return;
+    }
 
+    setLoading(true);
     try {
       const selectedRoles = Object.values(assignedRoles);
       const townsfolkRoles = TROUBLE_BREWING_ROLES.filter(r => r.type === 'townsfolk');
@@ -119,23 +135,19 @@ export function GrimoireSetup() {
           isDrunk: roleId === 'drunk',
           isPoisoned: false,
           bluffs: [],
-        };
+          // Mark as Red Herring if selected
+          isRedHerring: p.uid === redHerringUid
+        } as any;
       });
 
-      // Calculate Demon Bluffs
       const demonBluffs = townsfolkRoles
-        .filter(r => !selectedRoles.includes(r.id) && !Object.values(newSecretPlayers).some(sp => sp.fakeCharacter === r.id))
+        .filter(r => !selectedRoles.includes(r.id) && !Object.values(newSecretPlayers).some(sp => (sp as any).fakeCharacter === r.id))
         .sort(() => Math.random() - 0.5)
         .slice(0, 3)
         .map(r => r.id);
 
-      const evilInfo = {
-        demonUid,
-        minionUids,
-        bluffs: demonBluffs
-      };
-
-      await updateSecretState({ players: newSecretPlayers, evilInfo });
+      const evilInfo = { demonUid, minionUids, bluffs: demonBluffs };
+      await updateSecretState({ players: newSecretPlayers, evilInfo } as any);
 
       const newPublicPlayers = { ...roomState.players };
       orderedPlayers.forEach((p, index) => {
@@ -147,9 +159,9 @@ export function GrimoireSetup() {
         status: 'night',
         dayNumber: 1,
         highestVotes: 0,
-        executionTargetUid: null
+        executionTargetUid: null,
+        events: {}
       });
-
     } catch (err) {
       console.error(err);
     } finally {
@@ -157,16 +169,14 @@ export function GrimoireSetup() {
     }
   };
 
-  const props = GET_PROPORTIONS(orderedPlayers.length);
+  const props = getProportions();
   const allAssigned = orderedPlayers.length > 0 && orderedPlayers.every(p => assignedRoles[p.uid]);
+  const hasFortuneTeller = Object.values(assignedRoles).includes('fortune_teller');
 
   const radius = 120;
   const getPosition = (index: number, total: number) => {
     const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
-    return {
-      left: `${150 + radius * Math.cos(angle)}px`,
-      top: `${150 + radius * Math.sin(angle)}px`,
-    };
+    return { left: `${150 + radius * Math.cos(angle)}px`, top: `${150 + radius * Math.sin(angle)}px` };
   };
 
   return (
@@ -174,16 +184,16 @@ export function GrimoireSetup() {
       <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-800 backdrop-blur shadow-xl">
         <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
           <div>
-            <h2 className="text-xl font-bold text-sky-400 font-serif">마도서 설계</h2>
-            <p className="text-xs text-slate-500 mt-1">인원: {orderedPlayers.length}명</p>
+            <h2 className="text-xl font-bold text-sky-400 font-serif uppercase tracking-tight">Grimoire Design</h2>
+            <p className="text-[10px] text-slate-500 font-mono mt-1">Sess: {roomId} | Count: {orderedPlayers.length}</p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">추천 비율</p>
-            <div className="flex gap-2 text-xs font-mono">
-              <span className="text-sky-400">주{props.townsfolk}</span>
-              <span className="text-amber-400">외{props.outsider}</span>
-              <span className="text-rose-400">하{props.minion}</span>
-              <span className="text-rose-600">악{props.demon}</span>
+            <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1 font-black">Target Ratio</p>
+            <div className="flex gap-2 text-xs font-black">
+              <span className="text-sky-400">T{props.townsfolk}</span>
+              <span className="text-amber-400">O{props.outsider}</span>
+              <span className="text-rose-400">M{props.minion}</span>
+              <span className="text-rose-600">D{props.demon}</span>
             </div>
           </div>
         </div>
@@ -193,42 +203,58 @@ export function GrimoireSetup() {
             const pos = getPosition(i, orderedPlayers.length);
             const role = assignedRoles[p.uid];
             const roleDef = TROUBLE_BREWING_ROLES.find(r => r.id === role);
+            const isRH = p.uid === redHerringUid;
             return (
               <div key={p.uid} style={pos} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-                <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition-all shadow-lg overflow-hidden
+                <div 
+                  onClick={() => hasFortuneTeller && setRedHerringUid(p.uid)}
+                  className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-[10px] font-black transition-all shadow-lg overflow-hidden cursor-pointer
                   ${roleDef?.align === 'good' ? 'border-sky-500 bg-sky-950/80 text-sky-400' : 
                     roleDef?.align === 'evil' ? 'border-rose-500 bg-rose-950/80 text-rose-400' : 
-                    'border-slate-700 bg-slate-900 text-slate-500'}`}
+                    'border-slate-700 bg-slate-900 text-slate-500'}
+                  ${isRH ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-slate-950' : ''}`}
                 >
                   {roleDef ? roleDef.name.substring(0, 2) : i + 1}
                 </div>
-                <div className="mt-1 text-[9px] text-slate-400 font-medium whitespace-nowrap bg-slate-950/50 px-1 rounded">{p.name}</div>
+                <div className="mt-1 text-[8px] text-slate-400 font-black uppercase whitespace-nowrap bg-slate-950/80 px-1.5 py-0.5 rounded border border-slate-800">{p.name}</div>
               </div>
             );
           })}
         </div>
 
         <div className="flex gap-2 mb-6">
-          <Button variant="secondary" size="sm" onClick={handleRandomSeats} className="flex-1 text-xs">좌석 랜덤</Button>
-          <Button variant="secondary" size="sm" onClick={handleRandomRoles} className="flex-1 text-xs">직업 랜덤</Button>
+          <Button variant="secondary" size="sm" onClick={handleRandomSeats} className="flex-1 text-[10px] font-black uppercase">Shuffle Seats</Button>
+          <Button variant="secondary" size="sm" onClick={handleRandomRoles} className="flex-1 text-[10px] font-black uppercase">Random Roles</Button>
         </div>
 
-        <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+        {hasFortuneTeller && (
+           <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center animate-fade-in">
+             <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest mb-1">Fortune Teller Active</p>
+             <p className="text-[11px] text-slate-300">위의 원형 배치도에서 **레드헤링(주민)**을 한 명 클릭하여 지정하세요.</p>
+           </div>
+        )}
+
+        <div className="space-y-1.5 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
           {orderedPlayers.map((p, index) => (
-            <div key={p.uid} className="bg-slate-950 p-3 rounded-lg border border-slate-800/60 flex items-center gap-3">
+            <div key={p.uid} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 flex items-center gap-3 transition-colors hover:bg-slate-900/50">
               <div className="flex flex-col gap-1">
-                <button onClick={() => movePlayer(index, -1)} disabled={index === 0} className="text-slate-600 hover:text-sky-400 disabled:opacity-20 text-[10px]">▲</button>
-                <button onClick={() => movePlayer(index, 1)} disabled={index === orderedPlayers.length - 1} className="text-slate-600 hover:text-sky-400 disabled:opacity-20 text-[10px]">▼</button>
+                <button onClick={() => movePlayer(index, -1)} disabled={index === 0} className="text-slate-600 hover:text-sky-400 disabled:opacity-10 transition-colors">
+                  <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 2L15 10H0L7.5 2Z" fill="currentColor"/></svg>
+                </button>
+                <button onClick={() => movePlayer(index, 1)} disabled={index === orderedPlayers.length - 1} className="text-slate-600 hover:text-sky-400 disabled:opacity-10 transition-colors">
+                  <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 13L0 5H15L7.5 13Z" fill="currentColor"/></svg>
+                </button>
               </div>
-              <span className="text-sm font-medium text-slate-300 flex-1 truncate">{p.name}</span>
+              <span className="text-[10px] font-black text-slate-700 w-4 font-mono">{index + 1}</span>
+              <span className="text-xs font-bold text-slate-300 flex-1 truncate uppercase">{p.name}</span>
               <select
                 value={assignedRoles[p.uid] || ''}
                 onChange={(e) => setAssignedRoles(prev => ({ ...prev, [p.uid]: e.target.value as RoleType }))}
-                className="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded p-1.5 outline-none focus:border-sky-500 w-32"
+                className="bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold rounded-lg p-1.5 outline-none focus:border-sky-500 w-28 appearance-none text-center cursor-pointer"
               >
-                <option value="" disabled>직업 선택</option>
+                <option value="" disabled>-- SELECT --</option>
                 {TROUBLE_BREWING_ROLES.map(role => (
-                  <option key={role.id} value={role.id}>{role.name} ({role.type === 'townsfolk' ? '주민' : role.type === 'outsider' ? '외부인' : role.type === 'minion' ? '하수인' : '악마'})</option>
+                  <option key={role.id} value={role.id}>{role.name}</option>
                 ))}
               </select>
             </div>
@@ -242,9 +268,9 @@ export function GrimoireSetup() {
         isLoading={loading}
         variant="primary"
         size="lg"
-        className="w-full shadow-2xl font-bold"
+        className="w-full shadow-2xl font-black uppercase tracking-widest border-transparent"
       >
-        마도서 인장 및 첫날 밤 시작
+        Seal Grimoire & First Night
       </Button>
     </div>
   );

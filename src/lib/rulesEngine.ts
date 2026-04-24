@@ -13,18 +13,11 @@ export function getNightSuggestions(publicState: PublicRoomState, secretState: S
 
   // Night 1 Special Setup
   if (dayNumber === 1) {
-    // Evil Info setup
     if (evilInfo) {
        const demonName = pubPlayers[evilInfo.demonUid]?.name;
        const minionNames = evilInfo.minionUids.map(uid => pubPlayers[uid]?.name).join(', ');
        const bluffNames = evilInfo.bluffs.join(', ');
-
-       // Demon sees minions and bluffs
-       suggestions[evilInfo.demonUid] = { 
-         message: `하수인: ${minionNames || '없음'} | 가짜 직업: ${bluffNames}` 
-       };
-
-       // Minions see demon
+       suggestions[evilInfo.demonUid] = { message: `하수인: ${minionNames || '없음'} | 가짜 직업: ${bluffNames}` };
        evilInfo.minionUids.forEach(uid => {
          suggestions[uid] = { message: `악마: ${demonName}` };
        });
@@ -118,18 +111,29 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
   const actions = newSecretState.nightActions || {};
   const protectedUids = new Set<string>();
 
-  const suggestions = getNightSuggestions(publicState, secretState);
-  newSecretState.nightResults = {
-    ...(newSecretState.nightResults || {}),
-    ...suggestions
-  };
+  // 1. SCARLET WOMAN CHECK (Scene 6)
+  // If Demon died today, check for inheritance before calculating night actions
+  const alivePlayers = Object.values(newPublicState.players).filter(p => !p.isDead);
+  const imp = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp');
+  const impUid = imp ? imp[0] : null;
+  const isImpDead = impUid ? newPublicState.players[impUid]?.isDead : true;
 
+  if (isImpDead && alivePlayers.length >= 5) {
+     const sw = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'scarlet_woman' && !newPublicState.players[_].isDead);
+     if (sw) {
+        newSecretState.players[sw[0]].character = 'imp';
+        alert(`홍등가 여인이 새로운 임프가 되었습니다!`);
+     }
+  }
+
+  const suggestions = getNightSuggestions(publicState, secretState);
+  newSecretState.nightResults = { ...(newSecretState.nightResults || {}), ...suggestions };
+
+  // 2. Night Actions execution
   Object.entries(actions).forEach(([uid, action]) => {
     const player = newSecretState.players[uid];
     if (player.character === 'poisoner' && !player.isPoisoned && !player.isDrunk && !newPublicState.players[uid].isDead) {
-      if (action.targetUid && newSecretState.players[action.targetUid]) {
-        newSecretState.players[action.targetUid].isPoisoned = true;
-      }
+      if (action.targetUid) newSecretState.players[action.targetUid].isPoisoned = true;
     }
   });
 
