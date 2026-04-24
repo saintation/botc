@@ -41,15 +41,26 @@ export function STNightDashboard() {
   const onGenerateSuggestions = () => {
     if (!roomState || !secretState) return;
     const suggestions = getNightSuggestions(roomState, secretState);
+    
     setTempSecretState((prev) => {
       if (!prev) return null;
-      return {
-        ...prev,
-        nightResults: {
-          ...(prev.nightResults || {}),
-          ...suggestions
-        }
-      };
+      const updatedResults = { ...(prev.nightResults || {}), ...suggestions };
+      
+      // Auto-append player's own actions to their message log draft
+      Object.keys(secretState.nightActions || {}).forEach(uid => {
+         const action = secretState.nightActions[uid];
+         if (action?.targetUid) {
+            const t1 = roomState.players[action.targetUid]?.name;
+            const t2 = action.target2Uid ? ` & ${roomState.players[action.target2Uid]?.name}` : "";
+            const currentMsg = updatedResults[uid]?.message || "";
+            // Keep action record prefix
+            if (!currentMsg.includes("Action:")) {
+               updatedResults[uid] = { message: `(Action: ${t1}${t2}) ${currentMsg}` };
+            }
+         }
+      });
+
+      return { ...prev, nightResults: updatedResults };
     });
   };
 
@@ -58,27 +69,28 @@ export function STNightDashboard() {
     setLoading(true);
 
     try {
+      // 1. Run core engine
       const { newPublicState, newSecretState } = resolveNightActions(roomState, secretState);
       
-      const finalNightResults = {
-        ...(newSecretState.nightResults || {}),
-        ...(tempSecretState.nightResults || {})
-      };
-
-      newSecretState.nightResults = finalNightResults;
-
-      // Persist to history
+      // 2. Map current Storyteller confirmed messages into history
+      const finalMessages = tempSecretState.nightResults || {};
+      
       Object.keys(newSecretState.players).forEach(uid => {
-        const msg = finalNightResults[uid]?.message;
+        const msg = finalMessages[uid]?.message;
         if (msg) {
           const history = newSecretState.players[uid].messageHistory || [];
+          // Persistent storage of history
           newSecretState.players[uid].messageHistory = [...history, msg];
         }
       });
 
+      // 3. Sync to DB
       newPublicState.status = 'day';
       await updateSecretState(newSecretState);
       await updatePublicState(newPublicState);
+      
+      // Reset local temp state for next night
+      setTempSecretState(null);
       
     } catch (err) {
       console.error(err);
@@ -87,7 +99,6 @@ export function STNightDashboard() {
     }
   };
 
-  // Players who are getting info or made actions
   const actionReport = players.map(p => {
     const s = secretState.players[p.uid];
     const action = secretState.nightActions?.[p.uid];
@@ -119,12 +130,6 @@ export function STNightDashboard() {
                   {action && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-black uppercase">Action In</span>}
                </div>
                
-               {action && (
-                 <div className="text-[10px] text-slate-500 bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
-                    Choice: {roomState.players[action.targetUid!]?.name || 'NONE'} {action.target2Uid ? `& ${roomState.players[action.target2Uid]?.name}` : ''}
-                 </div>
-               )}
-
                <div className="space-y-1">
                  <p className="text-[9px] font-black text-sky-500 uppercase tracking-tighter ml-1">Message to Player</p>
                  <textarea 

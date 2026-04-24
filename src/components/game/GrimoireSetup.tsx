@@ -267,9 +267,26 @@ export function GrimoireSetup() {
                 className="bg-slate-900 border border-slate-800 text-slate-300 text-[10px] font-bold rounded-lg p-1.5 outline-none focus:border-sky-500 w-28 appearance-none text-center cursor-pointer"
               >
                 <option value="" disabled>-- SELECT --</option>
-                {TROUBLE_BREWING_ROLES.map(role => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
-                ))}
+                <optgroup label="🏘️ 주민 (Townsfolk)">
+                  {TROUBLE_BREWING_ROLES.filter(r => r.type === 'townsfolk').map(role => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🤡 외부인 (Outsider)">
+                  {TROUBLE_BREWING_ROLES.filter(r => r.type === 'outsider').map(role => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="😈 하수인 (Minion)">
+                  {TROUBLE_BREWING_ROLES.filter(r => r.type === 'minion').map(role => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="👹 악마 (Demon)">
+                  {TROUBLE_BREWING_ROLES.filter(r => r.type === 'demon').map(role => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
           ))}
