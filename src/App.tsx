@@ -40,29 +40,28 @@ function App() {
           )}
           
           {user && !role && !roomState && (
-            <div className="flex flex-col gap-4 mt-2 w-full animate-fade-in">
-              <p className="text-sm text-slate-400 mb-2">접속 성공! 역할을 선택하세요.</p>
-              <Button 
-                onClick={() => setRole('st')}
-                variant="primary"
-                size="lg"
-                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-              >
-                스토리텔러로 방 만들기
-              </Button>
-              <Button 
-                onClick={() => setRole('player')}
-                variant="primary"
-                size="lg"
-                className="w-full"
-              >
-                플레이어로 방 참가하기
-              </Button>
+            <div className="flex flex-col gap-8 mt-2 w-full animate-fade-in">
+              {/* Main Player Entry View */}
+              <div className="space-y-4">
+                <PlayerLobby />
+              </div>
+
+              {/* De-emphasized ST Entry */}
+              <div className="pt-6 border-t border-slate-800/50">
+                <button 
+                  onClick={() => setRole('st')}
+                  className="text-slate-500 hover:text-amber-400/80 text-xs font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
+                >
+                  <span>⚙️</span>
+                  <span>스토리텔러 전용 관리자 모드</span>
+                </button>
+              </div>
             </div>
           )}
 
           {user && role === 'st' && (roomState?.status === 'lobby' || roomState?.status === 'setup' || !roomState) && <STLobby />}
-          {user && role === 'player' && (roomState?.status === 'lobby' || roomState?.status === 'setup' || !roomState) && <PlayerLobby />}
+          {/* PlayerLobby is now handled inside the entry view above or here if role is set */}
+          {user && role === 'player' && roomState && (roomState?.status === 'lobby' || roomState?.status === 'setup') && <PlayerLobby />}
           
           {/* Day & Voting Phase */}
           {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}

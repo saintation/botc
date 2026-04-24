@@ -25,7 +25,8 @@ export function NightPhase({ isST }: { isST: boolean }) {
   let actionType: 'none' | 'one_target' | 'two_targets' = 'none';
 
   if (!isDead && role) {
-    if (role === 'poisoner' || role === 'monk' || role === 'imp') {
+    if (role === 'poisoner' || role === 'monk' || role === 'imp' || role === 'butler') {
+       // Poisoner, Monk, Butler act every night. Imp acts from Night 2.
        if (!(role === 'imp' && isFirstNight)) {
           needsRealAction = true;
           actionType = 'one_target';
@@ -48,6 +49,14 @@ export function NightPhase({ isST }: { isST: boolean }) {
   if (isST) {
     return <STNightDashboard />;
   }
+
+  // Set action label based on role
+  let actionLabel = "대상을 선택하세요";
+  if (role === 'butler') actionLabel = "오늘 밤 모실 주인을 선택하세요";
+  if (role === 'poisoner') actionLabel = "중독시킬 대상을 선택하세요";
+  if (role === 'monk') actionLabel = "보호할 대상을 선택하세요";
+  if (role === 'imp') actionLabel = "살해할 대상을 선택하세요";
+  if (role === 'fortune_teller') actionLabel = "조사할 대상 두 명을 선택하세요";
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-lg text-center animate-fade-in">
@@ -116,9 +125,8 @@ export function NightPhase({ isST }: { isST: boolean }) {
 
                {actionType === 'two_targets' && (
                  <div className="space-y-1.5 mt-2 animate-fade-in">
-                   <label className="text-xs font-medium text-amber-400/80 pl-1 uppercase tracking-wider flex items-center gap-1">
+                   <label className="text-xs font-medium text-slate-400 pl-1 uppercase tracking-wider flex items-center gap-1">
                      <span>대상 2</span>
-                     <span className="text-[10px] bg-amber-500/10 border border-amber-500/20 px-1.5 rounded text-amber-400">점쟁이 전용</span>
                    </label>
                    <select 
                      value={target2} 

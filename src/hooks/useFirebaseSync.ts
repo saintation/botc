@@ -95,7 +95,8 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
     const unsubscribeResult = onValue(
       resultRef,
       (snapshot) => {
-        setNightResult(snapshot.val() as NightResult);
+        const val = snapshot.val();
+        setNightResult(val ? (val as NightResult) : null);
       },
       (err) => setError(err)
     );
