@@ -5,11 +5,15 @@ import { PlayerLobby } from './components/game/PlayerLobby'
 import { DayPhase } from './components/game/DayPhase'
 import { NightPhase } from './components/game/NightPhase'
 import { useGameStore } from './store/gameStore'
+import { useGameData } from './hooks/useFirebaseSync'
 
 function App() {
-  const { user, loading, error } = useAuth()
+  const { user, loading, error: authError } = useAuth()
   const { roomId, roomState, setRoomId } = useGameStore()
   const [role, setRoleLocal] = setRoleState<'st' | 'player' | null>(localStorage.getItem('botc_role') as 'st' | 'player')
+
+  // Core Sync: Listen for game data whenever roomId is present
+  const { error: syncError } = useGameData(roomId)
 
   const setRole = (newRole: 'st' | 'player' | null) => {
     if (newRole) localStorage.setItem('botc_role', newRole);
@@ -40,20 +44,23 @@ function App() {
                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                </svg>
-               <p className="text-sm font-medium text-slate-400">마도서와 연결 중...</p>
+               <p className="text-sm font-medium text-slate-400">인증 확인 중...</p>
             </div>
           )}
-          {error && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl">
-              <p className="text-rose-500 text-sm font-medium">연결 오류: {error.message}</p>
+
+          {(authError || syncError) && (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl mb-4">
+              <p className="text-rose-500 text-sm font-medium">연결 오류: {authError?.message || syncError?.message}</p>
+              <button onClick={resetSession} className="text-xs text-rose-400 underline mt-2">강제 초기화 후 메인으로</button>
             </div>
           )}
           
           {user && role && roomId && !roomState && (
-             <div className="flex flex-col items-center justify-center py-20 gap-4 animate-pulse">
+             <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
                 <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sky-400 font-medium tracking-wide">마도서 기록 복구 중...</p>
-                <button onClick={resetSession} className="text-xs text-slate-500 underline mt-4">메인으로 돌아가기</button>
+                <p className="text-sky-400 font-medium tracking-wide animate-pulse">마도서 기록 복구 중...</p>
+                <p className="text-xs text-slate-500 max-w-[200px] leading-relaxed">네트워크 상태가 좋지 않거나 방이 사라졌을 수 있습니다.</p>
+                <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors">기록 삭제하고 처음으로 돌아가기</button>
              </div>
           )}
 
