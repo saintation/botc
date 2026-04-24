@@ -1,5 +1,5 @@
 import { useGameStore } from '../../store/gameStore';
-import { useGameData, usePlayerSecretData, useSecretData } from '../../hooks/useFirebaseSync';
+import { usePlayerSecretData, useSecretData } from '../../hooks/useFirebaseSync';
 import { database } from '../../lib/firebase';
 import { ref, update } from 'firebase/database';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,7 +10,6 @@ import { useState } from 'react';
 export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
   const { roomId, roomState, setShowSpyIntel } = useGameStore();
-  const { updatePublicState } = useGameData(roomId);
   const { playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
   const { secretState } = useSecretData(roomId, isST);
 
@@ -35,6 +34,9 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const yesCount = Object.values(voters).filter(v => v === true).length;
   const noCount = Object.values(voters).filter(v => v === false).length;
 
+  const usedNominators = roomState.usedNominators || [];
+  const usedTargets = roomState.usedTargets || [];
+
   const handleNominate = async (targetUid: string, nominatorUid: string) => {
     if (!isST) return;
     const targetSecret = secretState?.players[targetUid];
@@ -47,6 +49,8 @@ export function DayPhase({ isST }: { isST: boolean }) {
           updates[`public/rooms/${roomId}/lastExecutedUid`] = nominatorUid;
           updates[`public/rooms/${roomId}/status`] = 'night';
           updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
+          updates[`public/rooms/${roomId}/usedNominators`] = [];
+          updates[`public/rooms/${roomId}/usedTargets`] = [];
           updates[`secret/rooms/${roomId}/players/${targetUid}/isUsed`] = true;
           alert(`처녀(Virgin) 능력이 발동되었습니다! 지목자 ${roomState.players[nominatorUid].name}님이 즉시 처형됩니다.`);
           await update(ref(database), updates);
@@ -54,12 +58,22 @@ export function DayPhase({ isST }: { isST: boolean }) {
        }
     }
     const newNomination = { targetUid, nominatorUid, yesVotes: 0, noVotes: 0, voters: {} };
-    await updatePublicState({ status: 'voting', nominations: { [targetUid]: newNomination } });
+    const updates: Record<string, any> = {};
+    updates[`public/rooms/${roomId}/status`] = 'voting';
+    updates[`public/rooms/${roomId}/nominations`] = { [targetUid]: newNomination };
+    updates[`public/rooms/${roomId}/usedNominators`] = [...usedNominators, nominatorUid];
+    updates[`public/rooms/${roomId}/usedTargets`] = [...usedTargets, targetUid];
+    await update(ref(database), updates);
   };
 
   const handleCancelNomination = async () => {
-    if (!isST) return;
-    await updatePublicState({ status: 'day', nominations: null });
+    if (!isST || !currentNomination) return;
+    const updates: Record<string, any> = {};
+    updates[`public/rooms/${roomId}/status`] = 'day';
+    updates[`public/rooms/${roomId}/nominations`] = null;
+    updates[`public/rooms/${roomId}/usedNominators`] = usedNominators.filter(u => u !== currentNomination.nominatorUid);
+    updates[`public/rooms/${roomId}/usedTargets`] = usedTargets.filter(u => u !== currentNomination.targetUid);
+    await update(ref(database), updates);
   };
 
   const handleVote = async (vote: boolean) => {
@@ -104,6 +118,8 @@ export function DayPhase({ isST }: { isST: boolean }) {
     updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
     updates[`public/rooms/${roomId}/highestVotes`] = 0;
     updates[`public/rooms/${roomId}/executionTargetUid`] = null;
+    updates[`public/rooms/${roomId}/usedNominators`] = [];
+    updates[`public/rooms/${roomId}/usedTargets`] = [];
     await update(ref(database), updates);
   };
 
@@ -128,7 +144,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
     const lastEventId = Object.keys(events).sort().pop();
     const lastEvent = lastEventId ? events[lastEventId] : null;
     if (!isST || !lastEvent) return;
-    
     const updates: Record<string, any> = {};
     if (success) {
        const targetUid = Object.keys(roomState.players).find(k => roomState.players[k].name === lastEvent.targetName);
@@ -149,9 +164,9 @@ export function DayPhase({ isST }: { isST: boolean }) {
   return (
     <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-4 sm:px-0">
       {isST && lastEvent && lastEvent.type === 'slayer_shot' && (Date.now() - lastEvent.timestamp < 60000) && (
-        <div className="bg-rose-600 text-white p-8 rounded-[2.5rem] shadow-2xl animate-bounce text-center space-y-6">
+        <div className="bg-rose-600 text-white p-6 rounded-[2.5rem] shadow-2xl animate-bounce text-center space-y-4">
            <div>
-              <p className="text-xs font-black uppercase tracking-widest opacity-80 mb-2">Critical Event: Slayer Shot</p>
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">Critical Event: Slayer Shot</p>
               <p className="text-2xl font-black">{lastEvent.actorName} {'->'} {lastEvent.targetName}</p>
            </div>
            <div className="flex gap-3">
@@ -195,67 +210,48 @@ export function DayPhase({ isST }: { isST: boolean }) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-               <Button onClick={endVoting} variant="primary" size="lg" className="w-full font-black uppercase tracking-widest h-16 shadow-xl border-transparent">Finalize Results</Button>
-               <Button onClick={handleCancelNomination} variant="ghost" className="w-full text-xs text-slate-500 uppercase font-bold tracking-widest">Cancel Vote</Button>
+               <Button onClick={endVoting} variant="primary" className="w-full font-black uppercase tracking-widest h-16 shadow-xl border-transparent">Finalize Results</Button>
+               <Button onClick={handleCancelNomination} variant="ghost" className="w-full text-xs text-slate-500 uppercase font-bold tracking-widest underline underline-offset-4">Cancel Vote</Button>
             </div>
           )}
         </div>
       )}
 
-      {/* Identity & Intelligence Archive (NEW TOGGLE) */}
       {!isST && (
         <div className="bg-slate-900/80 rounded-3xl border border-slate-800 backdrop-blur shadow-2xl overflow-hidden">
-          <button 
-            onClick={() => setShowPlayerLog(!showPlayerLogLocal)}
-            className="w-full p-8 flex items-center justify-between hover:bg-slate-800/50 transition-all group"
-          >
+          <button onClick={() => setShowPlayerLog(!showPlayerLogLocal)} className="w-full p-8 flex items-center justify-between hover:bg-slate-800/50 transition-all group">
             <div className="flex items-center gap-5">
                <div className="w-12 h-12 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">🎭</div>
                <div className="text-left">
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-500 block mb-1">Confidential</span>
-                  <span className="text-lg font-black text-slate-200 tracking-tight">IDENTITY & INTEL ARCHIVE</span>
+                  <span className="text-lg font-black text-slate-200 tracking-tight uppercase">Identity & Intel</span>
                </div>
             </div>
             <span className={`text-slate-600 transition-transform duration-500 ${showPlayerLogLocal ? 'rotate-180' : ''}`}>
                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             </span>
           </button>
-          
           {showPlayerLogLocal && (
             <div className="p-8 pt-0 space-y-8 animate-fade-in border-t border-slate-800/50 mt-2 bg-slate-950/40">
-               <div className="py-6 px-8 bg-slate-950/80 rounded-3xl border border-slate-800 shadow-inner mt-6">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Current Guise</p>
-                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-100 to-sky-400 uppercase tracking-tighter">
-                    {getRoleName(playerSecret?.fakeCharacter || playerSecret?.character)}
-                  </p>
+               <div className="py-6 px-8 bg-slate-950/80 rounded-3xl border border-slate-800 shadow-inner mt-6 text-center">
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Your Current Role</p>
+                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-100 to-sky-400 uppercase tracking-tighter italic">{getRoleName(playerSecret?.fakeCharacter || playerSecret?.character)}</p>
                </div>
-
                {playerSecret?.alignment === 'evil' && playerSecret.evilTeamInfo && (
-                  <div className="p-6 bg-rose-950/20 border border-rose-500/20 rounded-3xl space-y-6 shadow-xl">
-                     <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest border-b border-rose-500/10 pb-3">Operational Team Briefing</p>
-                     <div className="grid grid-cols-2 gap-6">
-                        <div>
-                           <span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Demon</span>
-                           <span className="text-xl text-rose-400 font-black uppercase tracking-tight italic underline decoration-rose-500/20">{playerSecret.evilTeamInfo.demonName}</span>
-                        </div>
-                        <div>
-                           <span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Minions</span>
-                           <span className="text-base text-white font-bold leading-tight uppercase tracking-tight">{playerSecret.evilTeamInfo.minionNames.join(', ')}</span>
-                        </div>
-                     </div>
-                     {playerSecret.evilTeamInfo.bluffs.length > 0 && (
-                        <div className="pt-4 border-t border-rose-500/10">
-                           <span className="block text-[10px] text-slate-500 font-black uppercase mb-3 tracking-widest">Recommended Bluffs</span>
-                           <div className="flex flex-wrap gap-2">
-                              {playerSecret.evilTeamInfo.bluffs.map(b => (
-                                 <span key={b} className="bg-sky-500/10 text-sky-400 px-4 py-1.5 rounded-xl border border-sky-500/20 text-xs font-black uppercase tracking-widest shadow-sm">{getRoleName(b)}</span>
-                              ))}
+                  <div className="p-6 bg-rose-950/20 border border-rose-500/20 rounded-3xl space-y-6 shadow-xl text-center">
+                     <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest border-b border-rose-500/10 pb-3">Operational Briefing</p>
+                     <div className="grid grid-cols-1 gap-6">
+                        <div><span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Demon</span><span className="text-xl text-rose-400 font-black uppercase tracking-tight italic underline decoration-rose-500/20">{playerSecret.evilTeamInfo.demonName}</span></div>
+                        <div><span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Minions</span><span className="text-base text-white font-bold leading-tight uppercase tracking-tight">{playerSecret.evilTeamInfo.minionNames.join(', ')}</span></div>
+                        {playerSecret.evilTeamInfo.bluffs.length > 0 && (
+                           <div className="pt-4 border-t border-rose-500/10">
+                              <span className="block text-[10px] text-slate-500 font-black uppercase mb-3 tracking-widest">Team Bluffs</span>
+                              <div className="flex flex-wrap gap-2 justify-center">{playerSecret.evilTeamInfo.bluffs.map(b => (<span key={b} className="bg-sky-500/10 text-sky-400 px-4 py-1.5 rounded-xl border border-sky-500/20 text-xs font-black uppercase shadow-sm">{getRoleName(b)}</span>))}</div>
                            </div>
-                        </div>
-                     )}
+                        )}
+                     </div>
                   </div>
                )}
-
                <div className="space-y-4">
                   <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest ml-1">Chronicle of Intelligence</p>
                   <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
@@ -263,18 +259,11 @@ export function DayPhase({ isST }: { isST: boolean }) {
                         playerSecret.messageHistory.map((msg, i) => (
                           <div key={i} className="p-5 bg-slate-900/80 rounded-2xl border border-slate-800 shadow-lg text-base text-slate-300 italic font-serif leading-relaxed relative overflow-hidden group">
                              <div className="absolute top-0 left-0 w-1 h-full bg-sky-500/20 group-hover:bg-sky-500 transition-colors"></div>
-                             <div className="flex justify-between items-center mb-3">
-                                <span className="text-[10px] font-black text-sky-500/60 uppercase tracking-[0.2em]">Record #{i + 1}</span>
-                                <span className="text-[8px] font-bold text-slate-700 font-mono">DATED: NIGHT {i + 1}</span>
-                             </div>
+                             <div className="flex justify-between items-center mb-3"><span className="text-[10px] font-black text-sky-500/60 uppercase tracking-[0.2em]">Record #{i + 1}</span><span className="text-[8px] font-bold text-slate-700 font-mono">NIGHT {i + 1}</span></div>
                              <p className="pl-2">"{msg}"</p>
                           </div>
                         ))
-                     ) : (
-                        <div className="py-12 px-6 text-center border-2 border-dashed border-slate-800 rounded-[2.5rem] bg-slate-950/20 shadow-inner">
-                           <p className="text-slate-700 font-black uppercase tracking-widest text-xs">No records recovered from the void.</p>
-                        </div>
-                     )}
+                     ) : (<div className="py-12 px-6 text-center border-2 border-dashed border-slate-800 rounded-[2.5rem] bg-slate-950/20 shadow-inner"><p className="text-slate-700 font-black uppercase tracking-widest text-xs">No records available.</p></div>)}
                   </div>
                </div>
             </div>
@@ -282,58 +271,69 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      {/* Slayer shot remains high-visibility */}
       {!isST && playerSecret?.character === 'slayer' && !roomState.players[user.uid]?.isDead && (
          <div className="bg-rose-950/30 p-8 rounded-[3rem] border border-rose-500/30 text-center shadow-2xl mt-4 space-y-6 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-rose-500/20 animate-pulse"></div>
-            <p className="text-sm text-rose-500 font-black uppercase tracking-[0.4em] mb-2 shadow-sm">Execute Slayer's Shot</p>
+            <p className="text-sm text-rose-500 font-black uppercase tracking-[0.4em] mb-2">Execute Slayer's Shot</p>
             <div className="grid grid-cols-1 gap-2">
                {players.filter(p => !p.isDead && p.uid !== user.uid).map(p => (
-                 <Button key={p.uid} onClick={() => handleSlayerShot(p.uid)} variant="danger" className="w-full font-black uppercase tracking-widest h-14 text-base shadow-xl">
-                    KILL {p.name}
-                 </Button>
+                 <Button key={p.uid} onClick={() => handleSlayerShot(p.uid)} variant="danger" className="w-full font-black uppercase tracking-widest h-14 text-base shadow-xl">SHOOT {p.name}</Button>
                ))}
             </div>
          </div>
       )}
 
-      {/* ST Command Center - High Legibility */}
       {isST && (
-        <div className="bg-slate-900/90 p-8 rounded-[3rem] border border-slate-800 backdrop-blur shadow-[0_30px_60px_rgba(0,0,0,0.5)] mt-8 relative overflow-hidden">
+        <div className="bg-slate-900/90 p-8 rounded-[3rem] border border-slate-800 backdrop-blur shadow-2xl mt-8 relative overflow-hidden">
            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-sky-500/5 to-transparent pointer-events-none"></div>
            <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] mb-8 border-b border-slate-800 pb-5 flex justify-between items-center">
-              <span>Grimoire Master Control</span>
-              {roomState.executionTargetUid && <span className="bg-rose-600 text-white px-3 py-1 rounded-full text-[10px] animate-pulse">On Block: {roomState.players[roomState.executionTargetUid]?.name}</span>}
+              <span>Grimoire Admin Deck</span>
+              {roomState.executionTargetUid && <span className="bg-rose-600 text-white px-3 py-1 rounded-full text-[10px] animate-pulse italic">CANDIDATE: {roomState.players[roomState.executionTargetUid]?.name}</span>}
            </h3>
            {!isVoting ? (
-             <div className="space-y-8">
-                <div className="grid grid-cols-1 gap-4 max-h-[35vh] overflow-y-auto pr-3 custom-scrollbar">
-                   {players.filter(p => !p.isDead).map(p => (
-                      <div key={p.uid} className="flex items-center gap-4 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 shadow-inner group hover:border-slate-600 transition-all">
-                         <p className="text-sm text-slate-300 font-black uppercase w-28 truncate">{p.name}</p>
-                         <div className="flex gap-1.5 flex-1 flex-wrap justify-end">
-                            {players.filter(n => !n.isDead).map(nominator => (
-                               <button 
-                                 key={nominator.uid} 
-                                 onClick={() => handleNominate(p.uid, nominator.uid)} 
-                                 className="h-10 min-w-[40px] text-[11px] bg-slate-900 hover:bg-rose-600 text-slate-500 hover:text-white px-2 rounded-xl border border-slate-800 hover:border-rose-400 uppercase font-black transition-all shadow-md active:scale-90"
-                                 title={`${nominator.name} 지목`}
-                               >
-                                  {nominator.name.substring(0,2)}
-                               </button>
-                            ))}
-                         </div>
-                      </div>
-                   ))}
+             <div className="space-y-10">
+                <div className="space-y-6 max-h-[45vh] overflow-y-auto pr-3 custom-scrollbar">
+                   {players.filter(p => !p.isDead).map(target => {
+                      const isTargetUsed = usedTargets.includes(target.uid);
+                      return (
+                        <div key={target.uid} className={`bg-slate-950/80 p-4 rounded-[1.5rem] border ${isTargetUsed ? 'border-slate-900 opacity-40' : 'border-slate-800 shadow-xl'}`}>
+                           <div className="flex justify-between items-center mb-3">
+                              <span className="text-sm font-black text-sky-500 uppercase tracking-tighter italic">Target: {target.name}</span>
+                              {isTargetUsed && <span className="text-[8px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded uppercase font-black">Used</span>}
+                           </div>
+                           <div className="flex flex-col gap-2">
+                              <p className="text-[9px] text-slate-600 font-black uppercase ml-1 tracking-tighter">Choose Nominator:</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                 {players.filter(n => !n.isDead).map(nominator => {
+                                    const isNominatorUsed = usedNominators.includes(nominator.uid);
+                                    const canNominate = !isTargetUsed && !isNominatorUsed;
+                                    return (
+                                      <button 
+                                        key={nominator.uid} 
+                                        onClick={() => canNominate && handleNominate(target.uid, nominator.uid)} 
+                                        disabled={!canNominate}
+                                        className={`h-9 min-w-[36px] text-[10px] font-black rounded-xl border transition-all uppercase px-2
+                                          ${canNominate ? 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-rose-600 hover:text-white hover:border-rose-400 shadow-md active:scale-90' : 'bg-slate-950 border-slate-900 text-slate-800 cursor-not-allowed opacity-30'}
+                                        `}
+                                      >
+                                         {nominator.name.substring(0,2)}
+                                      </button>
+                                    );
+                                 })}
+                              </div>
+                           </div>
+                        </div>
+                      );
+                   })}
                 </div>
-                <Button onClick={finalizeDay} variant="danger" size="lg" className="w-full mt-6 font-black uppercase tracking-[0.3em] h-20 shadow-2xl border-transparent text-xl shadow-rose-950/40 hover:shadow-rose-600/20 active:scale-[0.98]">
-                   {roomState.executionTargetUid ? 'Execute & Wake Night' : 'End Day (No Execution)'}
+                <Button onClick={finalizeDay} variant="danger" size="lg" className="w-full mt-6 font-black uppercase tracking-[0.3em] h-20 shadow-2xl border-transparent text-xl shadow-rose-950/40">
+                   {roomState.executionTargetUid ? 'Execute & Wake Night' : 'End Day (Skip)'}
                 </Button>
              </div>
            ) : (
-             <div className="flex flex-col items-center justify-center py-20 gap-6">
-                <div className="w-16 h-16 border-8 border-sky-500/20 border-t-sky-500 rounded-full animate-spin shadow-2xl"></div>
-                <p className="text-sm font-black text-sky-500 uppercase tracking-[0.4em] animate-pulse">The Council is Deciding...</p>
+             <div className="flex flex-col items-center justify-center py-20 gap-6 animate-pulse">
+                <div className="w-16 h-16 border-8 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
+                <p className="text-sm font-black text-sky-500 uppercase tracking-[0.4em]">Vote in Progress...</p>
              </div>
            )}
         </div>

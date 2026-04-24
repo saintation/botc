@@ -34,6 +34,9 @@ export interface PublicRoomState {
   highestVotes?: number; 
   executionTargetUid?: string | null; 
   events?: Record<string, GameEvent>;
+  // 오늘 지목을 한 사람들과 당한 사람들 (UID 목록)
+  usedNominators?: string[]; 
+  usedTargets?: string[];
 }
 
 export interface SecretPlayer {
