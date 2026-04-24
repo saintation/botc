@@ -21,9 +21,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             'bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 hover:border-rose-500/50': variant === 'danger',
             'bg-transparent hover:bg-slate-800 text-slate-300': variant === 'ghost',
             'bg-transparent border border-sky-500/30 text-sky-400 hover:bg-sky-500/10': variant === 'outline',
-            'h-8 px-3 text-xs': size === 'sm',
-            'h-11 px-5 text-sm': size === 'md',
-            'h-14 px-8 text-base': size === 'lg',
+            'h-10 px-4 text-sm': size === 'sm',
+            'h-12 px-6 text-base': size === 'md',
+            'h-16 px-10 text-lg font-black uppercase tracking-widest': size === 'lg',
           },
           className
         )}
