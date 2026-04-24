@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState as setRoleState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { STLobby } from './components/game/STLobby'
 import { PlayerLobby } from './components/game/PlayerLobby'
@@ -8,8 +8,19 @@ import { useGameStore } from './store/gameStore'
 
 function App() {
   const { user, loading, error } = useAuth()
-  const [role, setRole] = useState<'st' | 'player' | null>(null)
-  const { roomState } = useGameStore()
+  const { roomId, roomState, setRoomId } = useGameStore()
+  const [role, setRoleLocal] = setRoleState<'st' | 'player' | null>(localStorage.getItem('botc_role') as 'st' | 'player')
+
+  const setRole = (newRole: 'st' | 'player' | null) => {
+    if (newRole) localStorage.setItem('botc_role', newRole);
+    else localStorage.removeItem('botc_role');
+    setRoleLocal(newRole);
+  };
+
+  const resetSession = () => {
+    setRole(null);
+    setRoomId(null);
+  };
 
   // Game Phases
   const isDayPhase = roomState?.status === 'day' || roomState?.status === 'voting';
@@ -38,14 +49,19 @@ function App() {
             </div>
           )}
           
-          {user && !role && !roomState && (
+          {user && role && roomId && !roomState && (
+             <div className="flex flex-col items-center justify-center py-20 gap-4 animate-pulse">
+                <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sky-400 font-medium tracking-wide">마도서 기록 복구 중...</p>
+                <button onClick={resetSession} className="text-xs text-slate-500 underline mt-4">메인으로 돌아가기</button>
+             </div>
+          )}
+
+          {user && !role && !roomState && !roomId && (
             <div className="flex flex-col gap-8 mt-2 w-full animate-fade-in">
-              {/* Main Player Entry View */}
               <div className="space-y-4">
                 <PlayerLobby />
               </div>
-
-              {/* De-emphasized ST Entry */}
               <div className="pt-6 border-t border-slate-800/50">
                 <button 
                   onClick={() => setRole('st')}
@@ -59,7 +75,6 @@ function App() {
           )}
 
           {user && role === 'st' && (roomState?.status === 'lobby' || roomState?.status === 'setup' || !roomState) && <STLobby />}
-          {/* PlayerLobby is now handled inside the entry view above or here if role is set */}
           {user && role === 'player' && roomState && (roomState?.status === 'lobby' || roomState?.status === 'setup') && <PlayerLobby />}
           
           {/* Day & Voting Phase */}
@@ -71,7 +86,7 @@ function App() {
         
         {role && (!roomState?.status) && (
           <button 
-            onClick={() => setRole(null)}
+            onClick={resetSession}
             className="mt-6 text-slate-500 text-sm hover:text-slate-300 transition-colors flex items-center gap-1"
           >
             <span>←</span> 역할 다시 선택하기

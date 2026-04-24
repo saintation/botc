@@ -34,19 +34,22 @@ export function PlayerLobby() {
         return;
       }
 
-      const currentStatus = snapshot.val().status;
-      if (currentStatus !== 'lobby') {
+      const roomData = snapshot.val();
+      const players = roomData.players || {};
+      const isAlreadyInRoom = !!players[user.uid];
+
+      if (roomData.status !== 'lobby' && !isAlreadyInRoom) {
          setError('이미 게임이 진행 중이거나 종료된 방입니다.');
          return;
       }
 
-      // Join room
+      // Join room (or update heartbeat)
       await update(ref(database, `public/rooms/${inputCode}/players/${user.uid}`), {
         uid: user.uid,
         name: inputName,
-        isDead: false,
-        hasGhostVote: false,
-        seatIndex: -1, // Not seated yet
+        isDead: players[user.uid]?.isDead ?? false,
+        hasGhostVote: players[user.uid]?.hasGhostVote ?? false,
+        seatIndex: players[user.uid]?.seatIndex ?? -1,
       });
 
       setRoomId(inputCode);
