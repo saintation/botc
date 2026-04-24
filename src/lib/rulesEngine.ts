@@ -1,10 +1,14 @@
 import type { PublicRoomState, SecretRoomState } from '../types/game';
 import type { RoleType } from '../types/character';
+import { getRoleName } from '../constants/roles';
 import { handleDemonDeath, checkWinCondition } from './gameLogic';
 
 const isDemon = (character: RoleType | null) => character === 'imp';
 const isEvil = (alignment: string | null) => alignment === 'evil';
 
+/**
+ * Trouble Brewing 정보 직업들에 대한 오정보/진실 정보를 생성하는 핵심 엔진
+ */
 export function getNightSuggestions(publicState: PublicRoomState, secretState: SecretRoomState) {
   const suggestions: Record<string, { message: string }> = {};
   const { players: secretPlayers, evilInfo } = secretState;
@@ -19,13 +23,43 @@ export function getNightSuggestions(publicState: PublicRoomState, secretState: S
     switch (effectiveCharacter) {
       case 'washerwoman':
         if (dayNumber === 1) {
-          const townsfolk = Object.entries(secretPlayers).filter(([pUid, p]) => p.alignment === 'good' && pUid !== uid && p.character !== 'drunk');
+          const townsfolk = Object.entries(secretPlayers).filter(([pUid, p]) => p.alignment === 'good' && pUid !== uid && p.character !== 'drunk' && p.character !== 'washerwoman');
           if (townsfolk.length > 0) {
             const target = townsfolk[Math.floor(Math.random() * townsfolk.length)];
             const decoy = Object.entries(secretPlayers).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
             const msg = isMisinformed 
               ? `${pubPlayers[decoy[0]]?.name} 또는 ${pubPlayers[uid]?.name}(본인) 중 한 명은 세탁부입니다.` 
-              : `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${target[1].character}입니다.`;
+              : `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${getRoleName(target[1].character)}입니다.`;
+            suggestions[uid] = { message: msg };
+          }
+        }
+        break;
+
+      case 'librarian':
+        if (dayNumber === 1) {
+          const outsiders = Object.entries(secretPlayers).filter(([_, p]) => p.alignment === 'good' && p.character !== 'drunk' && (p.character === 'butler' || p.character === 'saint' || p.character === 'recluse'));
+          if (outsiders.length > 0) {
+            const target = outsiders[Math.floor(Math.random() * outsiders.length)];
+            const decoy = Object.entries(secretPlayers).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
+            const msg = isMisinformed 
+              ? `${pubPlayers[decoy[0]]?.name} 또는 ${pubPlayers[uid]?.name}(본인) 중 한 명은 사서입니다.` 
+              : `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${getRoleName(target[1].character)}입니다.`;
+            suggestions[uid] = { message: msg };
+          } else {
+            suggestions[uid] = { message: isMisinformed ? "이 게임에는 1명의 외부인이 있습니다." : "이 게임에 외부인은 없습니다." };
+          }
+        }
+        break;
+
+      case 'investigator':
+        if (dayNumber === 1) {
+          const minions = Object.entries(secretPlayers).filter(([_, p]) => p.alignment === 'evil' && p.character !== 'imp');
+          if (minions.length > 0) {
+            const target = minions[Math.floor(Math.random() * minions.length)];
+            const decoy = Object.entries(secretPlayers).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
+            const msg = isMisinformed 
+              ? `${pubPlayers[decoy[0]]?.name} 또는 ${pubPlayers[uid]?.name}(본인) 중 한 명은 조사자입니다.` 
+              : `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${getRoleName(target[1].character)}입니다.`;
             suggestions[uid] = { message: msg };
           }
         }
@@ -60,7 +94,7 @@ export function getNightSuggestions(publicState: PublicRoomState, secretState: S
         if (lastExecutedUid) {
           const realRole = secretPlayers[lastExecutedUid]?.character;
           const fakeRoles: RoleType[] = ['imp', 'poisoner', 'fortune_teller', 'mayor'];
-          suggestions[uid] = { message: `오늘 처형된 자의 정체: ${isMisinformed ? fakeRoles[Math.floor(Math.random() * fakeRoles.length)] : realRole}` };
+          suggestions[uid] = { message: `오늘 처형된 자의 정체: ${isMisinformed ? getRoleName(fakeRoles[Math.floor(Math.random() * fakeRoles.length)]) : getRoleName(realRole)}` };
         }
         break;
 
@@ -73,12 +107,19 @@ export function getNightSuggestions(publicState: PublicRoomState, secretState: S
           suggestions[uid] = { message: (isMisinformed ? !realAnswer : realAnswer) ? 'Yes' : 'No' };
         }
         break;
+        
+      case 'butler':
+        const butlerAction = secretState.nightActions?.[uid];
+        if (butlerAction?.targetUid) {
+           suggestions[uid] = { message: `당신이 선택한 주인: ${pubPlayers[butlerAction.targetUid]?.name}` };
+        }
+        break;
     }
   });
 
   if (dayNumber === 1 && evilInfo) {
     const minionNames = evilInfo.minionUids.map(u => pubPlayers[u]?.name).join(', ');
-    suggestions[evilInfo.demonUid] = { message: `[악마 정보] 하수인: ${minionNames || '없음'} | 가짜직업: ${evilInfo.bluffs.join(', ')}` };
+    suggestions[evilInfo.demonUid] = { message: `[악마 정보] 하수인: ${minionNames || '없음'} | 가짜직업: ${evilInfo.bluffs.map(b => getRoleName(b)).join(', ')}` };
     evilInfo.minionUids.forEach(mUid => {
       suggestions[mUid] = { message: `[하수인 정보] 악마: ${pubPlayers[evilInfo.demonUid]?.name}` };
     });
@@ -93,13 +134,10 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
   const actions = newSecretState.nightActions || {};
   const protectedUids = new Set<string>();
 
-  // 1. 상태 리셋
   Object.keys(newSecretState.players).forEach(uid => {
     newSecretState.players[uid].isPoisoned = false;
   });
 
-  // 2. 밤의 액션 처리 (공식 순서)
-  // Priority: Poisoner
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
     if (p.character === 'poisoner' && !p.isPoisoned && !p.isDrunk && !newPublicState.players[uid].isDead) {
@@ -107,7 +145,6 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
-  // Priority: Monk
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
     if (p.character === 'monk' && !p.isPoisoned && !p.isDrunk && !newPublicState.players[uid].isDead) {
@@ -115,7 +152,6 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
-  // Priority: Imp
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
     if (p.character === 'imp' && !p.isPoisoned && !p.isDrunk && !newPublicState.players[uid].isDead && publicState.dayNumber > 1) {
@@ -129,13 +165,11 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
-  // 3. 악마 계승 체크 (Imp 사망 여부 확인)
   const impEntry = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp');
   if (impEntry && newPublicState.players[impEntry[0]]?.isDead) {
      handleDemonDeath(newPublicState, newSecretState);
   }
 
-  // 4. 승리 조건 체크
   const winner = checkWinCondition(newPublicState, newSecretState);
   if (winner) {
     newPublicState.status = 'end';
