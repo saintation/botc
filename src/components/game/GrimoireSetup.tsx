@@ -100,7 +100,7 @@ export function GrimoireSetup() {
     if (!roomId || !roomState) return;
     const hasFortuneTeller = Object.values(assignedRoles).includes('fortune_teller');
     if (hasFortuneTeller && !redHerringUid) {
-       alert("점쟁이가 있으므로 레드헤링(거짓 악마)을 반드시 지정해야 합니다.");
+       alert("점쟁이가 있으므로 환각(거짓 악마)을 반드시 지정해야 합니다.");
        return;
     }
 
@@ -244,7 +244,7 @@ export function GrimoireSetup() {
         {hasFortuneTeller && (
            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center animate-fade-in">
              <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest mb-1">Fortune Teller Active</p>
-             <p className="text-[11px] text-slate-300">위의 원형 배치도에서 **레드헤링(주민)**을 한 명 클릭하여 지정하세요.</p>
+             <p className="text-[11px] text-slate-300">위의 원형 배치도에서 **환각(주민)**을 한 명 클릭하여 지정하세요.</p>
            </div>
         )}
 
