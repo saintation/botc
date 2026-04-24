@@ -6,31 +6,26 @@ interface GameState {
   roomState: PublicRoomState | null;
   roomId: string | null;
   role: 'st' | 'player' | null;
+  showSpyIntel: boolean;
   
-  // 액션 (Firebase 연동 전 UI 테스트용 또는 로컬 반영용)
+  // 액션
   setRoomState: (state: PublicRoomState) => void;
   setRoomId: (id: string | null) => void;
   setRole: (role: 'st' | 'player' | null) => void;
+  setShowSpyIntel: (show: boolean) => void;
   nominatePlayer: (targetUid: string, nominatorUid: string) => void;
   updatePhase: (newPhase: GamePhase) => void;
 }
-
-// 초기 Mock 상태 (테스트용)
-export const initialMockState: PublicRoomState = {
-  status: 'lobby',
-  dayNumber: 0,
-  players: {},
-  nominations: null,
-};
 
 export const useGameStore = create<GameState>((set) => ({
   roomState: null,
   roomId: localStorage.getItem('botc_room_id'),
   role: localStorage.getItem('botc_role') as 'st' | 'player' | null,
+  showSpyIntel: false,
 
   setRoomState: (state) => set({ roomState: state }),
   
-  setRoomId: (id) => {
+  setRoomId: (id: string | null) => {
     if (id) localStorage.setItem('botc_room_id', id);
     else localStorage.removeItem('botc_room_id');
     set({ roomId: id });
@@ -42,10 +37,10 @@ export const useGameStore = create<GameState>((set) => ({
     set({ role });
   },
 
+  setShowSpyIntel: (show: boolean) => set({ showSpyIntel: show }),
+
   nominatePlayer: (targetUid, nominatorUid) => set((state) => {
     if (!state.roomState) return state;
-    
-    // 단순한 로컬 액션 시뮬레이션 (실제로는 Firebase Hooks에서 서버 업데이트로 처리)
     return {
       roomState: {
         ...state.roomState,

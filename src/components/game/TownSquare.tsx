@@ -2,18 +2,21 @@ import { useGameStore } from '../../store/gameStore';
 import { useSecretData } from '../../hooks/useFirebaseSync';
 import { cn } from '../../lib/utils/cn';
 import { getRoleName } from '../../constants/roles';
+import { useAuth } from '../../hooks/useAuth';
 
 export function TownSquare() {
-  const { roomId, roomState, role } = useGameStore();
-  const { secretState } = useSecretData(roomId, role === 'st');
+  const { user } = useAuth();
+  const { roomId, roomState, role, showSpyIntel } = useGameStore();
+  const { secretState } = useSecretData(roomId, role === 'st' || showSpyIntel);
 
   if (!roomState) return null;
 
   const players = Object.values(roomState.players).sort((a, b) => a.seatIndex - b.seatIndex);
   
-  // Spy logic: can see full info like ST
-  const isSpy = role === 'player' && secretState?.players[Object.keys(roomState.players).find(k => roomState.players[k].uid === Object.keys(roomState.players)[0])!]?.character === 'spy';
-  const showFullInfo = role === 'st' || isSpy;
+  // Spy logic: can see full info like ST IF intel is toggled on
+  const isSpy = role === 'player' && user && secretState?.players[user.uid]?.character === 'spy';
+  const showFullInfo = role === 'st' || (isSpy && showSpyIntel);
+
 
   const radius = 135; 
   const getPosition = (index: number, total: number) => {

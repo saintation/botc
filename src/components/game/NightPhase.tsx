@@ -146,10 +146,10 @@ export function NightPhase({ isST }: { isST: boolean }) {
               variant={needsRealAction ? "primary" : "secondary"}
               size="lg"
               className="w-full mt-6 font-black uppercase tracking-widest shadow-2xl h-14 border-transparent"
+              disabled={needsRealAction && (!target1 || (actionType === 'two_targets' && !target2))}
             >
               {needsRealAction ? 'Commit Action' : 'Confirm & Wait'}
-            </Button>
-          </div>
+            </Button>          </div>
         )}
       </div>
     </div>
