@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
 import { getRoleName } from '../../constants/roles';
 import { useState } from 'react';
-import { handleDemonDeath } from '../../lib/gameLogic';
+import { handleDemonDeath, checkWinCondition } from '../../lib/gameLogic';
 
 export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
@@ -45,21 +45,32 @@ export function DayPhase({ isST }: { isST: boolean }) {
     
     if (targetSecret?.character === 'virgin' && !targetSecret.isPoisoned && !targetSecret.isDrunk && !targetSecret.isUsed) {
        if (nominatorSecret?.alignment === 'good' && !['butler', 'drunk', 'recluse', 'saint'].includes(nominatorSecret.character || '')) {
+          const pubClone = JSON.parse(JSON.stringify(roomState));
+          const secClone = JSON.parse(JSON.stringify(secretState));
+          pubClone.players[nominatorUid].isDead = true;
+          pubClone.players[nominatorUid].hasGhostVote = true;
+          pubClone.lastExecutedUid = nominatorUid;
+          secClone.players[targetUid].isUsed = true;
+
+          const winner = checkWinCondition(pubClone, secClone);
+          if (winner) {
+             pubClone.status = 'end';
+             pubClone.winner = winner;
+          } else {
+             pubClone.status = 'night';
+             pubClone.dayNumber += 1;
+             pubClone.usedNominators = [];
+             pubClone.usedTargets = [];
+          }
+
           const updates: Record<string, any> = {};
-          updates[`public/rooms/${roomId}/players/${nominatorUid}/isDead`] = true;
-          updates[`public/rooms/${roomId}/players/${nominatorUid}/hasGhostVote`] = true;
-          updates[`public/rooms/${roomId}/lastExecutedUid`] = nominatorUid;
-          updates[`public/rooms/${roomId}/status`] = 'night';
-          updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
-          updates[`public/rooms/${roomId}/usedNominators`] = [];
-          updates[`public/rooms/${roomId}/usedTargets`] = [];
-          updates[`secret/rooms/${roomId}/players/${targetUid}/isUsed`] = true;
+          updates[`public/rooms/${roomId}`] = pubClone;
+          updates[`secret/rooms/${roomId}/players`] = secClone.players;
           alert(`처녀(Virgin) 능력이 발동되었습니다! 지목자 ${roomState.players[nominatorUid].name}님이 즉시 처형됩니다.`);
           await update(ref(database), updates);
           return;
        }
     }
-
     const newNomination = { targetUid, nominatorUid, yesVotes: 0, noVotes: 0, voters: {} };
     const updates: Record<string, any> = {};
     updates[`public/rooms/${roomId}/status`] = 'voting';
@@ -82,12 +93,15 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const handleVote = async (vote: boolean) => {
     if (isST || !currentNominationKey || !currentNomination) return;
     const myPlayer = roomState.players[user.uid];
-    if (myPlayer.isDead && !myPlayer.hasGhostVote) return;
+    if (myPlayer.isDead && vote === true && !myPlayer.hasGhostVote) return;
     const updates: Record<string, any> = {};
     updates[`public/rooms/${roomId}/nominations/${currentNominationKey}/voters/${user.uid}`] = vote;
-    if (myPlayer.isDead && vote === true) {
-       updates[`public/rooms/${roomId}/players/${user.uid}/hasGhostVote`] = false;
-       alert("유령 투표권을 사용하셨습니다!");
+    if (myPlayer.isDead) {
+       if (vote === true) {
+          updates[`public/rooms/${roomId}/players/${user.uid}/hasGhostVote`] = false;
+       } else if (vote === false && voters[user.uid] === true) {
+          updates[`public/rooms/${roomId}/players/${user.uid}/hasGhostVote`] = true;
+       }
     }
     await update(ref(database), updates);
   };
@@ -108,42 +122,57 @@ export function DayPhase({ isST }: { isST: boolean }) {
   };
 
   const finalizeDay = async () => {
-    if (!isST) return;
-    const updates: Record<string, any> = {};
-    const targetUid = roomState.executionTargetUid;
-    const targetSecret = targetUid ? secretState?.players[targetUid] : null;
+    if (!isST || !secretState) return;
+    const pubClone = JSON.parse(JSON.stringify(roomState));
+    const secClone = JSON.parse(JSON.stringify(secretState));
+    const targetUid = pubClone.executionTargetUid;
+    const targetSecret = targetUid ? secClone.players[targetUid] : null;
 
     if (targetUid) {
-       updates[`public/rooms/${roomId}/players/${targetUid}/isDead`] = true;
-       updates[`public/rooms/${roomId}/players/${targetUid}/hasGhostVote`] = true;
-       updates[`public/rooms/${roomId}/lastExecutedUid`] = targetUid;
+       pubClone.players[targetUid].isDead = true;
+       pubClone.players[targetUid].hasGhostVote = true;
+       pubClone.lastExecutedUid = targetUid;
        if (targetSecret?.character === 'saint' && !targetSecret.isPoisoned && !targetSecret.isDrunk) {
-          updates[`public/rooms/${roomId}/status`] = 'end';
-          updates[`public/rooms/${roomId}/winner`] = 'evil';
-          await update(ref(database), updates);
-          return;
+          pubClone.status = 'end';
+          pubClone.winner = 'evil';
+       } else {
+          if (targetSecret?.character === 'imp') handleDemonDeath(pubClone, secClone);
+          const winner = checkWinCondition(pubClone, secClone);
+          if (winner) {
+             pubClone.status = 'end';
+             pubClone.winner = winner;
+          } else {
+             pubClone.status = 'night';
+             pubClone.dayNumber += 1;
+          }
        }
     } else {
-       updates[`public/rooms/${roomId}/lastExecutedUid`] = null;
-    }
-
-    const finalAlive = players.filter(p => !p.isDead && p.uid !== targetUid);
-    const isMayorAlive = finalAlive.some(p => secretState?.players[p.uid]?.character === 'mayor');
-    if (!targetUid && finalAlive.length === 3 && isMayorAlive) {
-       if (window.confirm("시장 승리 조건 충족. 게임을 종료할까요?")) {
-          updates[`public/rooms/${roomId}/status`] = 'end';
-          updates[`public/rooms/${roomId}/winner`] = 'good';
-          await update(ref(database), updates);
-          return;
+       const finalAlive = players.filter(p => !p.isDead);
+       const isMayorAlive = finalAlive.some(p => secClone.players[p.uid]?.character === 'mayor');
+       if (finalAlive.length === 3 && isMayorAlive) {
+          if (window.confirm("시장 승리 조건 충족. 게임을 종료할까요?")) {
+             pubClone.status = 'end';
+             pubClone.winner = 'good';
+          } else {
+             pubClone.status = 'night';
+             pubClone.dayNumber += 1;
+          }
+       } else {
+          pubClone.status = 'night';
+          pubClone.dayNumber += 1;
        }
     }
 
-    updates[`public/rooms/${roomId}/status`] = 'night';
-    updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
-    updates[`public/rooms/${roomId}/highestVotes`] = 0;
-    updates[`public/rooms/${roomId}/executionTargetUid`] = null;
-    updates[`public/rooms/${roomId}/usedNominators`] = [];
-    updates[`public/rooms/${roomId}/usedTargets`] = [];
+    if (pubClone.status === 'night') {
+       pubClone.highestVotes = 0;
+       pubClone.executionTargetUid = null;
+       pubClone.usedNominators = [];
+       pubClone.usedTargets = [];
+    }
+
+    const updates: Record<string, any> = {};
+    updates[`public/rooms/${roomId}`] = pubClone;
+    updates[`secret/rooms/${roomId}/players`] = secClone.players;
     await update(ref(database), updates);
   };
 
@@ -163,11 +192,10 @@ export function DayPhase({ isST }: { isST: boolean }) {
     }
   };
 
-  const events = roomState.events || {};
-  const lastEventId = Object.keys(events).sort().pop();
-  const lastEvent = lastEventId ? events[lastEventId] : null;
-
   const handleResolveSlayer = async (success: boolean) => {
+    const events = roomState.events || {};
+    const lastEventId = Object.keys(events).sort().pop();
+    const lastEvent = lastEventId ? events[lastEventId] : null;
     if (!isST || !lastEvent || !secretState) return;
     const updates: Record<string, any> = {};
     if (success) {
@@ -193,6 +221,10 @@ export function DayPhase({ isST }: { isST: boolean }) {
     updates[`public/rooms/${roomId}/events/${lastEventId}`] = null;
     await update(ref(database), updates);
   };
+
+  const events = roomState.events || {};
+  const lastEventId = Object.keys(events).sort().pop();
+  const lastEvent = lastEventId ? events[lastEventId] : null;
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-4 sm:px-0">
@@ -224,11 +256,11 @@ export function DayPhase({ isST }: { isST: boolean }) {
              <span className="font-black text-white text-3xl uppercase tracking-tighter border-b-4 border-sky-500/20 pb-1 inline-block">{roomState.players[currentNomination.targetUid]?.name}</span>
           </p>
           <div className="flex justify-center gap-10 mb-10">
-            <div className="flex flex-col items-center bg-slate-900/60 p-6 rounded-3xl border border-sky-500/20 w-32">
+            <div className="flex flex-col items-center bg-slate-900/60 p-6 rounded-3xl border border-sky-500/20 w-32 shadow-inner">
               <span className="text-5xl font-black text-sky-400 mb-2">{yesCount}</span>
               <span className="text-[10px] font-black text-slate-500 uppercase">Yes (Min: {majorityNeeded})</span>
             </div>
-            <div className="flex flex-col items-center bg-slate-900/60 p-6 rounded-3xl border border-rose-500/20 w-32">
+            <div className="flex flex-col items-center bg-slate-900/60 p-6 rounded-3xl border border-rose-500/20 w-32 shadow-inner">
               <span className="text-5xl font-black text-rose-400 mb-2">{noCount}</span>
               <span className="text-[10px] font-black text-slate-500 uppercase">No</span>
             </div>
@@ -240,7 +272,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-               <Button onClick={endVoting} variant="primary" size="lg" className="w-full font-black uppercase h-16 shadow-xl border-transparent">Finalize Results</Button>
+               <Button onClick={endVoting} variant="primary" className="w-full font-black uppercase h-16 shadow-xl border-transparent">Finalize Results</Button>
                <Button onClick={handleCancelNomination} variant="ghost" className="w-full text-xs text-slate-500 uppercase tracking-widest font-black underline underline-offset-8 decoration-slate-800">Cancel Vote</Button>
             </div>
           )}
@@ -264,7 +296,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
                </div>
                {playerSecret?.alignment === 'evil' && playerSecret.evilTeamInfo && (
                   <div className="p-6 bg-rose-950/20 border border-rose-500/20 rounded-3xl space-y-6 shadow-xl text-center">
-                     <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest border-b border-rose-500/10 pb-3">Team Intelligence</p>
+                     <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest border-b border-rose-500/10 pb-3">Operational Briefing</p>
                      <div className="grid grid-cols-1 gap-6">
                         <div><span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Demon</span><span className="text-xl text-rose-400 font-black uppercase tracking-tight italic underline decoration-rose-500/20">{playerSecret.evilTeamInfo.demonName}</span></div>
                         <div><span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Minions</span><span className="text-base text-white font-bold leading-tight uppercase tracking-tight">{playerSecret.evilTeamInfo.minionNames.join(', ')}</span></div>
@@ -278,7 +310,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
                   </div>
                )}
                <div className="space-y-4">
-                  <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest ml-1">Archive of Intel</p>
+                  <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest ml-1">Chronicle of Intelligence</p>
                   <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                      {playerSecret?.messageHistory && playerSecret.messageHistory.length > 0 ? (
                         playerSecret.messageHistory.map((msg, i) => (
@@ -300,7 +332,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
       {!isST && playerSecret?.character === 'slayer' && !roomState.players[user.uid]?.isDead && (
          <div className="bg-rose-950/30 p-8 rounded-[3rem] border border-rose-500/30 text-center shadow-2xl mt-4 space-y-6 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-rose-500/20 animate-pulse"></div>
-            <p className="text-sm text-rose-500 font-black uppercase tracking-[0.4em] mb-2">Slayer's Judgement</p>
+            <p className="text-sm text-rose-500 font-black uppercase tracking-[0.4em] mb-2">Execute Slayer's Shot</p>
             <div className="grid grid-cols-1 gap-2">
                {players.filter(p => !p.isDead && p.uid !== user.uid).map(p => (
                  <Button key={p.uid} onClick={() => handleSlayerShot(p.uid)} variant="danger" className="w-full font-black uppercase tracking-widest h-14 text-base shadow-xl border-transparent">KILL {p.name}</Button>
@@ -309,7 +341,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
          </div>
       )}
 
-      {/* ST Control Panel */}
+      {/* ST Control Panel - Redesigned Nomination UI */}
       {isST && (
         <div className="bg-slate-900/95 p-8 rounded-[3rem] border border-slate-800 backdrop-blur shadow-[0_30px_60px_rgba(0,0,0,0.5)] mt-8 relative overflow-hidden">
            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-sky-500/5 to-transparent pointer-events-none"></div>
@@ -326,7 +358,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
                         <div key={target.uid} className={`bg-slate-950/80 p-5 rounded-[2rem] border transition-all ${isTargetUsed ? 'border-slate-900 opacity-30 grayscale' : 'border-slate-800 shadow-xl hover:border-slate-600'}`}>
                            <div className="flex justify-between items-center mb-4">
                               <span className="text-base font-black text-sky-500 uppercase tracking-tighter italic">Target: {target.name}</span>
-                              {isTargetUsed && <span className="text-[9px] bg-slate-800 text-slate-500 px-3 py-1 rounded-full uppercase font-black">Nominated</span>}
+                              {isTargetUsed && <span className="text-[8px] bg-slate-800 text-slate-500 px-3 py-1 rounded-full uppercase font-black">Nominated</span>}
                            </div>
                            <div className="flex flex-col gap-3">
                               <p className="text-[10px] text-slate-600 font-black uppercase ml-1 tracking-[0.2em]">Select Nominator</p>
