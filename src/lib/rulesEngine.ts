@@ -6,13 +6,30 @@ const isEvil = (alignment: string | null) => alignment === 'evil';
 
 export function getNightSuggestions(publicState: PublicRoomState, secretState: SecretRoomState) {
   const suggestions: Record<string, { message: string }> = {};
-  const { players: secretPlayers } = secretState;
+  const { players: secretPlayers, evilInfo } = secretState;
   const { players: pubPlayers, dayNumber, lastExecutedUid } = publicState;
   
   const orderedPubPlayers = Object.values(pubPlayers).sort((a, b) => a.seatIndex - b.seatIndex);
 
   // Night 1 Special Setup
   if (dayNumber === 1) {
+    // Evil Info setup
+    if (evilInfo) {
+       const demonName = pubPlayers[evilInfo.demonUid]?.name;
+       const minionNames = evilInfo.minionUids.map(uid => pubPlayers[uid]?.name).join(', ');
+       const bluffNames = evilInfo.bluffs.join(', ');
+
+       // Demon sees minions and bluffs
+       suggestions[evilInfo.demonUid] = { 
+         message: `하수인: ${minionNames || '없음'} | 가짜 직업: ${bluffNames}` 
+       };
+
+       // Minions see demon
+       evilInfo.minionUids.forEach(uid => {
+         suggestions[uid] = { message: `악마: ${demonName}` };
+       });
+    }
+
     Object.entries(secretPlayers).forEach(([uid, player]) => {
       if (player.character === 'washerwoman') {
          const townsfolk = Object.entries(secretPlayers).filter(([_, p]) => p.alignment === 'good' && _ !== uid && p.character !== 'drunk' && p.character !== 'washerwoman');
@@ -45,9 +62,7 @@ export function getNightSuggestions(publicState: PublicRoomState, secretState: S
          for (let i = 0; i < orderedPubPlayers.length; i++) {
             const current = orderedPubPlayers[i];
             const next = orderedPubPlayers[(i + 1) % orderedPubPlayers.length];
-            if (isEvil(secretPlayers[current.uid]?.alignment) && isEvil(secretPlayers[next.uid]?.alignment)) {
-               evilPairs++;
-            }
+            if (isEvil(secretPlayers[current.uid]?.alignment) && isEvil(secretPlayers[next.uid]?.alignment)) evilPairs++;
          }
          suggestions[uid] = { message: `악의 진영 이웃 쌍의 수: ${evilPairs}` };
       }

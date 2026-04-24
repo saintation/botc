@@ -76,83 +76,72 @@ export function STNightDashboard() {
     }
   };
 
-  const infoRoles = players.filter(p => {
+  // Players who are getting info or made actions
+  const actionReport = players.map(p => {
     const s = secretState.players[p.uid];
-    return s && ['washerwoman', 'librarian', 'investigator', 'fortune_teller', 'butler', 'empath', 'undertaker'].includes(s.character || '');
+    const action = secretState.nightActions?.[p.uid];
+    const result = tempSecretState.nightResults?.[p.uid]?.message;
+    return { p, s, action, result };
   });
 
   return (
     <div className="bg-slate-900/90 p-6 sm:p-8 rounded-2xl border border-amber-500/20 shadow-xl text-left w-full max-w-lg backdrop-blur-sm animate-fade-in relative overflow-hidden pb-10">
       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-      <h2 className="text-2xl font-bold text-amber-400 mb-6 flex items-center gap-2 relative z-10 border-b border-amber-500/10 pb-4">
-        <span>📖</span> 밤 페이즈 마도서 관리
+      <h2 className="text-xl font-black text-amber-500 mb-6 flex items-center gap-2 relative z-10 border-b border-amber-500/10 pb-4 uppercase tracking-tighter">
+        <span>📖</span> Grimmoire Management
       </h2>
 
       <div className="mb-8 relative z-10 space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-slate-300 font-bold text-sm uppercase tracking-wider">주요 정보 확인 및 수정</h3>
-          <Button variant="outline" size="sm" onClick={onGenerateSuggestions} className="text-[10px] h-7 px-2 border-amber-500/30 text-amber-400">
-             시스템 제안 생성
+          <h3 className="text-slate-300 font-bold text-xs uppercase tracking-widest">Player Intelligence</h3>
+          <Button variant="outline" size="sm" onClick={onGenerateSuggestions} className="text-[9px] h-6 px-2 border-amber-500/30 text-amber-400 font-black">
+             GENERATE SUGGESTIONS
           </Button>
         </div>
-        <div className="space-y-3">
-          {infoRoles.length > 0 ? infoRoles.map(p => {
-            const char = secretState.players[p.uid]?.character;
-            const currentMsg = tempSecretState.nightResults?.[p.uid]?.message || "";
-            return (
-              <div key={p.uid} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sky-400 font-bold text-sm">{p.name} <span className="text-slate-500 font-normal ml-1">({char})</span></span>
-                </div>
-                <textarea 
-                  value={currentMsg}
+        
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+          {actionReport.map(({ p, s, action, result }) => (
+            <div key={p.uid} className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-2 shadow-inner">
+               <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-300">{p.name} <span className="text-[10px] text-slate-500 font-medium ml-1">({s?.character})</span></span>
+                  {action && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-black uppercase">Action In</span>}
+               </div>
+               
+               {action && (
+                 <div className="text-[10px] text-slate-500 bg-slate-900/50 p-1.5 rounded border border-slate-800/50">
+                    Choice: {roomState.players[action.targetUid!]?.name || 'NONE'} {action.target2Uid ? `& ${roomState.players[action.target2Uid]?.name}` : ''}
+                 </div>
+               )}
+
+               <textarea 
+                  value={result || ""}
                   onChange={(e) => handleUpdateResult(p.uid, e.target.value)}
-                  placeholder="플레이어에게 보낼 정보를 입력하세요..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-300 outline-none focus:border-amber-500 min-h-[60px]"
-                />
-              </div>
-            );
-          }) : (
-            <p className="text-xs text-slate-500 py-4 text-center border border-dashed border-slate-800 rounded-xl font-mono">현재 수동 확인이 필요한 직업이 없습니다.</p>
-          )}
+                  placeholder="No info for this player..."
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-[11px] text-sky-400 font-medium outline-none focus:border-amber-500 min-h-[50px] custom-scrollbar"
+               />
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="mb-8 relative z-10">
-        <div className="flex justify-between items-end mb-4">
-          <h3 className="text-slate-300 font-bold text-sm uppercase tracking-wider">플레이어 입력 현황</h3>
-          <span className="text-xs font-mono bg-slate-950 px-2 py-1 rounded border border-slate-800 text-sky-400">
-            {submittedCount} / {totalPlayers}
-          </span>
+      <div className="p-5 bg-amber-500/5 rounded-2xl border border-amber-500/10 mb-6 relative z-10 shadow-inner">
+        <div className="flex justify-between items-center mb-4">
+           <p className="text-[10px] text-amber-500/60 font-bold uppercase tracking-widest">Waking Up Order</p>
+           <span className="text-[10px] font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-sky-400">
+             {submittedCount} / {totalPlayers} Submissions
+           </span>
         </div>
         
-        <div className="grid grid-cols-2 gap-2">
-          {players.map(p => {
-            const hasSubmitted = !!secretState.nightActions?.[p.uid];
-            return (
-              <div key={p.uid} className={`p-2 rounded-lg text-xs flex items-center justify-between transition-all border ${hasSubmitted ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-950/80 text-slate-600 border-slate-800/50'}`}>
-                <span className="truncate">{p.name}</span>
-                <span>{hasSubmitted ? '✓' : '⋯'}</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="p-5 bg-amber-500/5 rounded-xl border border-amber-500/10 mb-6 relative z-10">
-        <p className="text-xs text-amber-200/60 mb-4 leading-relaxed">
-          상단의 정보 수정을 마친 후, 모든 플레이어가 입력을 완료하면 결과를 일괄 전송하고 아침을 깨울 수 있습니다.
-        </p>
         <Button 
           onClick={handleResolveAndWakeUp}
           disabled={!allSubmitted || loading}
           isLoading={loading}
           variant="primary"
           size="lg"
-          className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg disabled:bg-slate-800 disabled:text-slate-600"
+          className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-lg disabled:bg-slate-800 disabled:text-slate-600 border-transparent uppercase tracking-tight"
         >
-          {allSubmitted ? '결과 일괄 전송 및 아침으로' : '입력 대기 중...'}
+          {allSubmitted ? 'Broadcast Results & Dawn' : 'Waiting for Players...'}
         </Button>
       </div>
       
@@ -162,9 +151,9 @@ export function STNightDashboard() {
           disabled={loading}
           variant="ghost"
           size="sm"
-          className="w-full text-rose-500/50 hover:text-rose-500 transition-colors text-[10px]"
+          className="w-full text-rose-500/30 hover:text-rose-500 transition-colors text-[9px] font-black"
          >
-           (강제 아침 전환 - 미입력자 무시)
+           FORCE START (IGNORE AFK)
          </Button>
       )}
     </div>

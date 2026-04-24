@@ -13,25 +13,28 @@ export interface PublicPlayer {
 export interface Nomination {
   targetUid: string;
   nominatorUid: string;
-  yesVotes: number; // 찬성 투표 수
-  noVotes: number; // 반대 투표 수 (옵셔널이거나 불필요할 수도 있음)
-  voters: Record<string, boolean>; // uid -> 찬성 여부
+  yesVotes: number;
+  noVotes: number;
+  voters: Record<string, boolean>;
 }
 
 export interface PublicRoomState {
   status: GamePhase;
   players: Record<string, PublicPlayer>;
   dayNumber: number;
-  nominations: Record<string, Nomination> | null; // 현재 지목 상태
-  lastExecutedUid?: string | null; // 어제 처형된 사람
+  nominations: Record<string, Nomination> | null;
+  lastExecutedUid?: string | null; 
+  highestVotes?: number; // 이번 낮에 나온 최고 득표수
+  executionTargetUid?: string | null; // 현재 처형 후보자
 }
 
 export interface SecretPlayer {
-  character: RoleType | null; // 아직 배정 안되었을 수 있음
+  character: RoleType | null; 
+  fakeCharacter?: RoleType | null; // 취객이 보는 가짜 직업
   alignment: Alignment | null;
   isDrunk: boolean;
   isPoisoned: boolean;
-  bluffs: RoleType[]; // 악마에게 주어지는 3개의 가짜 직업
+  bluffs: RoleType[]; 
 }
 
 export interface NightAction {
@@ -49,4 +52,9 @@ export interface SecretRoomState {
   players: Record<string, SecretPlayer>;
   nightActions: Record<string, NightAction>;
   nightResults: Record<string, NightResult>;
+  evilInfo?: {
+    demonUid: string;
+    minionUids: string[];
+    bluffs: RoleType[];
+  } | null;
 }

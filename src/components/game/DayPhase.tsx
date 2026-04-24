@@ -9,7 +9,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
   const { roomId, roomState } = useGameStore();
   const { updatePublicState } = useGameData(roomId);
-  const { nightResult } = usePlayerSecretData(roomId, user?.uid || null);
+  const { nightResult, playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
 
   if (!roomState || !user || !roomId) return null;
 
@@ -18,8 +18,12 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const currentNominationKey = roomState.nominations ? Object.keys(roomState.nominations)[0] : null;
   const currentNomination = currentNominationKey && roomState.nominations ? roomState.nominations[currentNominationKey] : null;
 
+  const alivePlayers = players.filter(p => !p.isDead);
+  const majorityNeeded = Math.ceil(alivePlayers.length / 2);
+
   const handleNominate = async (targetUid: string) => {
     if (!isST) return;
+    
     const newNomination = {
       targetUid,
       nominatorUid: 'system',
@@ -35,7 +39,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
   };
 
   const handleSlayerAbility = async (targetUid: string) => {
-    if (isST) return;
+    if (isST || playerSecret?.character !== 'slayer') return;
     const targetName = roomState.players[targetUid].name;
     if (window.confirm(`${targetName}님에게 학살자 능력을 사용하시겠습니까? (이 행동은 모두에게 공개됩니다)`)) {
        const updates: Record<string, any> = {};
@@ -60,38 +64,55 @@ export function DayPhase({ isST }: { isST: boolean }) {
     await update(ref(database), updates);
   };
 
-  const endVoting = async (execute: boolean) => {
-    if (!isST || !currentNominationKey) return;
+  const endVoting = async () => {
+    if (!isST || !currentNominationKey || !currentNomination) return;
     
-    if (execute) {
-      const updates: Record<string, any> = {};
-      updates[`public/rooms/${roomId}/players/${currentNominationKey}/isDead`] = true;
-      updates[`public/rooms/${roomId}/players/${currentNominationKey}/hasGhostVote`] = true;
-      updates[`public/rooms/${roomId}/status`] = 'night';
-      updates[`public/rooms/${roomId}/nominations`] = null;
-      updates[`public/rooms/${roomId}/lastExecutedUid`] = currentNominationKey;
-      await update(ref(database), updates);
-    } else {
-      await updatePublicState({ status: 'day', nominations: null });
+    const voters = currentNomination.voters || {};
+    const yesCount = Object.values(voters).filter(v => v === true).length;
+    
+    const currentHighest = roomState.highestVotes || 0;
+    const updates: Record<string, any> = {};
+
+    if (yesCount >= majorityNeeded && yesCount > currentHighest) {
+       // New execution candidate
+       updates[`public/rooms/${roomId}/highestVotes`] = yesCount;
+       updates[`public/rooms/${roomId}/executionTargetUid`] = currentNomination.targetUid;
+    } else if (yesCount >= majorityNeeded && yesCount === currentHighest) {
+       // Tie - nobody is executed if it remains a tie
+       updates[`public/rooms/${roomId}/executionTargetUid`] = null;
     }
+
+    updates[`public/rooms/${roomId}/status`] = 'day';
+    updates[`public/rooms/${roomId}/nominations`] = null;
+    await update(ref(database), updates);
   };
 
-  const endDay = async () => {
+  const finalizeDay = async () => {
     if (!isST) return;
-    await updatePublicState({ 
-      status: 'night', 
-      nominations: null,
-      dayNumber: roomState.dayNumber + 1 
-    });
+    
+    const updates: Record<string, any> = {};
+    const targetUid = roomState.executionTargetUid;
+
+    if (targetUid) {
+       updates[`public/rooms/${roomId}/players/${targetUid}/isDead`] = true;
+       updates[`public/rooms/${roomId}/players/${targetUid}/hasGhostVote`] = true;
+       updates[`public/rooms/${roomId}/lastExecutedUid`] = targetUid;
+    } else {
+       updates[`public/rooms/${roomId}/lastExecutedUid`] = null;
+    }
+
+    updates[`public/rooms/${roomId}/status`] = 'night';
+    updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
+    updates[`public/rooms/${roomId}/highestVotes`] = 0;
+    updates[`public/rooms/${roomId}/executionTargetUid`] = null;
+    
+    await update(ref(database), updates);
   };
 
   const voters = currentNomination?.voters || {};
   const yesCount = Object.values(voters).filter(v => v === true).length;
   const noCount = Object.values(voters).filter(v => v === false).length;
-  const aliveCount = players.filter(p => !p.isDead).length;
-  const majorityNeeded = Math.ceil(aliveCount / 2);
 
-  // Monitor Slayer Events for ST
   const events = (roomState as any).events || {};
   const lastEventId = Object.keys(events).sort().pop();
   const lastEvent = lastEventId ? events[lastEventId] : null;
@@ -106,38 +127,30 @@ export function DayPhase({ isST }: { isST: boolean }) {
       )}
 
       <div className="bg-slate-900/80 p-5 rounded-xl border border-slate-800/80 backdrop-blur flex justify-between items-center shadow-sm">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-2">
-            <span className="text-amber-400">☀️</span>
-            {roomState.dayNumber}일차 낮
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">생존자: {aliveCount}명</p>
+        <div className="flex-1">
+          <div className="flex justify-between items-start">
+            <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-2">
+              <span className="text-amber-400 text-xl font-serif">☀️</span>
+              {roomState.dayNumber}일차 낮
+            </h2>
+            {roomState.executionTargetUid && (
+              <div className="text-right">
+                <p className="text-[10px] text-rose-400 font-bold uppercase tracking-tighter">처형 후보</p>
+                <p className="text-xs text-white font-medium">{roomState.players[roomState.executionTargetUid]?.name} ({roomState.highestVotes}표)</p>
+              </div>
+            )}
+          </div>
         </div>
-        {isST && !isVoting && (
-          <Button onClick={endDay} variant="secondary" size="sm">
-            처형 없이 밤으로
-          </Button>
-        )}
       </div>
 
-      {!isST && nightResult && (
-        <div className="bg-sky-500/10 p-5 rounded-xl border border-sky-500/30 text-center animate-fade-in shadow-[0_0_20px_rgba(14,165,233,0.1)]">
-          <h3 className="text-sky-400 font-bold mb-2 flex items-center justify-center gap-2">
-            <span>ℹ️</span> 지난 밤 얻은 정보
-          </h3>
-          <p className="text-xl text-slate-100 font-medium tracking-wide">"{nightResult.message}"</p>
-        </div>
-      )}
-
       {isVoting && currentNomination && (
-        <div className="bg-rose-950/40 p-6 rounded-xl border border-rose-500/30 text-center relative overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.1)]">
-          <div className="absolute inset-0 bg-rose-500/5 animate-pulse-slow pointer-events-none"></div>
-          <h3 className="text-rose-400 font-bold mb-2 relative z-10 text-lg">투표 진행 중</h3>
-          <p className="text-slate-300 mb-6 relative z-10 text-lg">
-            <span className="font-bold text-white text-xl border-b-2 border-rose-500/50 pb-1">{roomState.players[currentNomination.targetUid]?.name}</span> 님이 지목되었습니다.
+        <div className="bg-slate-950 p-6 rounded-xl border border-sky-500/30 text-center relative overflow-hidden shadow-2xl">
+          <h3 className="text-sky-400 font-bold mb-2 text-lg">투표 진행 중</h3>
+          <p className="text-slate-300 mb-6 text-lg">
+            <span className="font-bold text-white text-xl">{roomState.players[currentNomination.targetUid]?.name}</span> 님이 지목되었습니다.
           </p>
           
-          <div className="flex justify-center gap-8 mb-8 relative z-10">
+          <div className="flex justify-center gap-8 mb-8">
             <div className="flex flex-col items-center bg-slate-900/50 p-4 rounded-xl border border-sky-500/20 w-28">
               <span className="text-3xl font-bold text-sky-400 mb-1">{yesCount}</span>
               <span className="text-xs font-medium text-slate-400">찬성</span>
@@ -157,38 +170,39 @@ export function DayPhase({ isST }: { isST: boolean }) {
           )}
 
           {isST && (
-            <div className="flex gap-3 flex-col mt-4 relative z-10">
-              <Button onClick={() => endVoting(true)} variant="danger">투표 종료 (처형 및 밤으로)</Button>
-              <Button onClick={() => endVoting(false)} variant="secondary">투표 종료 (처형 안함)</Button>
-            </div>
+            <Button onClick={endVoting} variant="primary" className="w-full">투표 결과 확정</Button>
           )}
         </div>
       )}
 
-      <div className="bg-slate-900/80 rounded-xl p-5 border border-slate-800 backdrop-blur">
-        <h3 className="text-slate-300 font-bold mb-4 border-b border-slate-800/80 pb-3 flex items-center gap-2">
-          <span>🏛️</span> 마을 광장
-        </h3>
-        <ul className="space-y-2.5">
-          {players.map((p) => (
-            <li key={p.uid} className={`p-3 sm:p-4 rounded-xl flex items-center justify-between transition-all border ${p.isDead ? 'opacity-60 bg-slate-950 border-slate-800/50' : 'bg-slate-950/80 border-slate-700/50 shadow-sm'}`}>
-              <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-800 text-slate-400 text-xs font-bold">{p.seatIndex + 1}</span>
-                <span className={`font-medium text-base ${p.isDead ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{p.name}</span>
-                {p.isDead && p.hasGhostVote && <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full ml-1">👻 유령 투표권</span>}
-              </div>
-              
-              {isST && !isVoting && !p.isDead && (
-                <Button onClick={() => handleNominate(p.uid)} variant="outline" size="sm" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10">지목하기</Button>
-              )}
+      {!isST && nightResult && (
+        <div className="bg-sky-500/5 p-4 rounded-xl border border-sky-500/20 text-center shadow-inner">
+          <h3 className="text-sky-500 text-[10px] font-black uppercase tracking-widest mb-1">Last Night Info</h3>
+          <p className="text-sm text-slate-300 italic">"{nightResult.message}"</p>
+        </div>
+      )}
 
-              {!isST && !isVoting && !p.isDead && p.uid !== user.uid && (
-                <button onClick={() => handleSlayerAbility(p.uid)} className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors underline decoration-dotted">학살자 사용</button>
+      <div className="space-y-2">
+        {players.map((p) => (
+          <div key={p.uid} className={`bg-slate-900/40 p-3 rounded-lg border border-slate-800 flex items-center justify-between ${p.isDead ? 'opacity-50' : ''}`}>
+            <span className="text-sm font-medium text-slate-300">{p.name}</span>
+            <div className="flex gap-2">
+              {isST && !isVoting && !p.isDead && (
+                <Button onClick={() => handleNominate(p.uid)} variant="outline" size="sm" className="h-7 text-[10px] border-rose-500/30 text-rose-400">지목</Button>
               )}
-            </li>
-          ))}
-        </ul>
+              {!isST && playerSecret?.character === 'slayer' && !p.isDead && p.uid !== user.uid && (
+                <Button onClick={() => handleSlayerAbility(p.uid)} variant="danger" size="sm" className="h-7 text-[10px] font-black tracking-tighter">SLAYER SHOT</Button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
+
+      {isST && !isVoting && (
+        <Button onClick={finalizeDay} variant="danger" size="lg" className="w-full mt-4 font-bold shadow-xl border-transparent">
+          {roomState.executionTargetUid ? '처형 집행 및 밤으로' : '처형 없이 밤으로'}
+        </Button>
+      )}
     </div>
   );
 }
