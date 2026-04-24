@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "public": {
+      "rooms": {
+        "$roomId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "secret": {
+      "rooms": {
+        "$roomId": {
+          // ST(스토리텔러)는 방 전체 secret 데이터를 읽고 쓸 수 있음
+          ".read": "auth != null && data.child('stUid').val() === auth.uid",
+          ".write": "auth != null && (!data.exists() || data.child('stUid').val() === auth.uid)",
+          
+          "players": {
+            "$uid": {
+              // 플레이어는 본인의 비밀 정보(직업, 진영, 결과)만 읽을 수 있음
+              ".read": "auth != null && $uid === auth.uid",
+              // 플레이어는 상태이상을 스스로 바꿀 수 없음 (오직 ST만 기록)
+              ".write": "auth != null && data.parent().parent().child('stUid').val() === auth.uid"
+            }
+          },
+          "nightActions": {
+            "$uid": {
+              // 플레이어는 본인의 밤 행동만 기록할 수 있음
+              ".write": "auth != null && $uid === auth.uid"
+            }
+          }
+        }
+      }
+    }
+  }
+}
