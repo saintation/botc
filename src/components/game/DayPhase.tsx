@@ -4,9 +4,9 @@ import { database } from '../../lib/firebase';
 import { ref, update } from 'firebase/database';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
-import { getRoleName } from '../../constants/roles';
 import { useState } from 'react';
 import { handleDemonDeath, checkWinCondition } from '../../lib/gameLogic';
+import { ConfidentialArchive } from './shared/ConfidentialArchive';
 
 export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
@@ -203,7 +203,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
   return (
     <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-4 sm:px-0">
       {isST && lastEvent && lastEvent.type === 'slayer_shot' && (Date.now() - lastEvent.timestamp < 60000) && (
-        <div className="bg-rose-600 text-white p-6 rounded-[2.5rem] shadow-2xl animate-bounce text-center space-y-4">
+        <div className="bg-rose-600 text-white p-8 rounded-[2.5rem] shadow-2xl animate-bounce text-center space-y-4">
            <div><p className="text-[10px] font-black uppercase opacity-80 mb-2 tracking-widest">Slayer Shot Alert</p><p className="text-2xl font-black">{lastEvent.actorName} {'->'} {lastEvent.targetName}</p></div>
            <div className="flex gap-3">
               <Button onClick={() => handleResolveSlayer(true)} variant="primary" className="flex-1 bg-white text-rose-600 font-black h-16">DEAD</Button>
@@ -212,8 +212,8 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 backdrop-blur flex justify-between items-center shadow-lg">
-        <h2 className="text-3xl font-black text-slate-100 uppercase tracking-tighter font-serif">Day {roomState.dayNumber}</h2>
+      <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-slate-800 backdrop-blur flex justify-between items-center shadow-lg">
+        <h2 className="text-3xl font-black text-slate-100 uppercase tracking-tighter font-serif">{roomState.dayNumber}일차 낮</h2>
         {roomState.executionTargetUid && (
           <div className="text-right">
             <p className="text-[10px] text-rose-500 font-black uppercase tracking-widest">Candidate</p>
@@ -259,54 +259,17 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      {/* Identity & Intel Log */}
+      {/* Identity & Intel Log (Reusable Component) */}
       {!isST && (
-        <div className="bg-slate-900/80 rounded-3xl border border-slate-800 backdrop-blur shadow-2xl overflow-hidden">
-          <button onClick={() => setShowPlayerLog(!showPlayerLogLocal)} className="w-full p-8 flex items-center justify-between hover:bg-slate-800/50 transition-all group">
-            <div className="flex items-center gap-5">
-               <div className="w-12 h-12 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">🎭</div>
-               <div className="text-left"><span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-500 block mb-1">Confidential</span><span className="text-lg font-black text-slate-200 tracking-tight uppercase">Identity & Intel</span></div>
-            </div>
-            <span className={`text-slate-600 transition-transform duration-500 ${showPlayerLogLocal ? 'rotate-180' : ''}`}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
-          </button>
-          {showPlayerLogLocal && (
-            <div className="p-8 pt-0 space-y-8 animate-fade-in border-t border-slate-800/50 mt-2 bg-slate-950/40">
-               <div className="py-6 px-8 bg-slate-950/80 rounded-3xl border border-slate-800 shadow-inner mt-6 text-center">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Current Role</p>
-                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-100 to-sky-400 uppercase tracking-tighter italic">{getRoleName(playerSecret?.fakeCharacter || playerSecret?.character)}</p>
-               </div>
-               {playerSecret?.alignment === 'evil' && playerSecret.evilTeamInfo && (
-                  <div className="p-6 bg-rose-950/20 border border-rose-500/20 rounded-3xl space-y-6 shadow-xl text-center">
-                     <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest border-b border-rose-500/10 pb-3">Operational Briefing</p>
-                     <div className="grid grid-cols-1 gap-6">
-                        <div><span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Demon</span><span className="text-xl text-rose-400 font-black uppercase tracking-tight italic underline decoration-rose-500/20">{playerSecret.evilTeamInfo.demonName}</span></div>
-                        <div><span className="block text-[10px] text-slate-500 font-black uppercase mb-1">Minions</span><span className="text-base text-white font-bold leading-tight uppercase tracking-tight">{playerSecret.evilTeamInfo.minionNames.join(', ')}</span></div>
-                        {playerSecret.evilTeamInfo.bluffs.length > 0 && (
-                           <div className="pt-4 border-t border-rose-500/10">
-                              <span className="block text-[10px] text-slate-500 font-black uppercase mb-3 tracking-widest">Team Bluffs</span>
-                              <div className="flex flex-wrap gap-2 justify-center">{playerSecret.evilTeamInfo.bluffs.map(b => (<span key={b} className="bg-sky-500/10 text-sky-400 px-4 py-1.5 rounded-xl border border-sky-500/20 text-xs font-black uppercase shadow-sm">{getRoleName(b)}</span>))}</div>
-                           </div>
-                        )}
-                     </div>
-                  </div>
-               )}
-               <div className="space-y-4">
-                  <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest ml-1">Archive of Intel</p>
-                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                     {playerSecret?.messageHistory && playerSecret.messageHistory.length > 0 ? (
-                        playerSecret.messageHistory.map((msg, i) => (
-                          <div key={i} className="p-5 bg-slate-900/80 rounded-2xl border border-slate-800 shadow-lg text-base text-slate-300 italic font-serif leading-relaxed relative overflow-hidden group">
-                             <div className="absolute top-0 left-0 w-1 h-full bg-sky-500/20 group-hover:bg-sky-500 transition-colors"></div>
-                             <div className="flex justify-between items-center mb-3"><span className="text-[10px] font-black text-sky-500/60 uppercase tracking-[0.2em]">Record #{i + 1}</span><span className="text-[8px] font-bold text-slate-700 font-mono text-xs">NIGHT {i + 1}</span></div>
-                             <p className="pl-2">"{msg}"</p>
-                          </div>
-                        ))
-                     ) : (<div className="py-12 px-6 text-center border-2 border-dashed border-slate-800 rounded-[2.5rem] bg-slate-950/20 shadow-inner"><p className="text-slate-700 font-black uppercase tracking-widest text-xs">No records available.</p></div>)}
-                  </div>
-               </div>
-            </div>
-          )}
-        </div>
+        <ConfidentialArchive 
+          isOpen={showPlayerLogLocal}
+          onToggle={() => setShowPlayerLog(!showPlayerLogLocal)}
+          character={playerSecret?.character || null}
+          fakeCharacter={playerSecret?.fakeCharacter}
+          alignment={playerSecret?.alignment || null}
+          evilTeamInfo={playerSecret?.evilTeamInfo}
+          messageHistory={playerSecret?.messageHistory}
+        />
       )}
 
       {/* Slayer Shot */}
@@ -322,19 +285,19 @@ export function DayPhase({ isST }: { isST: boolean }) {
          </div>
       )}
 
-      {/* Nomination History (REPLACING ST CONTROL PANEL) */}
+      {/* Nomination History */}
       <div className="bg-slate-900/60 p-6 rounded-[2.5rem] border border-slate-800 backdrop-blur shadow-xl mt-4">
          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 border-b border-slate-800 pb-3">Daily Nomination Log</h3>
          <div className="space-y-4">
             {roomState.nominationHistory && roomState.nominationHistory.length > 0 ? (
                roomState.nominationHistory.map((record, i) => (
-                 <div key={i} className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50 animate-fade-in shadow-inner">
+                 <div key={i} className="bg-slate-950/50 p-4 rounded-[1.5rem] border border-slate-800/50 animate-fade-in shadow-inner">
                     <div className="flex justify-between items-start mb-3">
                        <div className="flex flex-col">
                           <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Nominator</span>
                           <span className="text-sm font-bold text-slate-400">{record.nominatorName}</span>
                        </div>
-                       <div className="text-sky-500 text-xs mt-2 animate-pulse">▶</div>
+                       <div className="text-sky-500 text-xs mt-2 animate-pulse" aria-hidden="true">▶</div>
                        <div className="flex flex-col text-right">
                           <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Target</span>
                           <span className="text-sm font-bold text-sky-400">{record.targetName}</span>
