@@ -22,7 +22,7 @@ export const initialMockState: PublicRoomState = {
 };
 
 export const useGameStore = create<GameState>((set) => ({
-  roomState: initialMockState,
+  roomState: null,
   roomId: null,
 
   setRoomState: (state) => set({ roomState: state }),

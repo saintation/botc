@@ -39,7 +39,7 @@ function App() {
             </div>
           )}
           
-          {user && !role && !roomState?.status && (
+          {user && !role && !roomState && (
             <div className="flex flex-col gap-4 mt-2 w-full animate-fade-in">
               <p className="text-sm text-slate-400 mb-2">접속 성공! 역할을 선택하세요.</p>
               <Button 
@@ -61,8 +61,8 @@ function App() {
             </div>
           )}
 
-          {user && role === 'st' && (!roomState?.status || roomState?.status === 'lobby' || roomState?.status === 'setup') && <STLobby />}
-          {user && role === 'player' && (!roomState?.status || roomState?.status === 'lobby' || roomState?.status === 'setup') && <PlayerLobby />}
+          {user && role === 'st' && (roomState?.status === 'lobby' || roomState?.status === 'setup' || !roomState) && <STLobby />}
+          {user && role === 'player' && (roomState?.status === 'lobby' || roomState?.status === 'setup' || !roomState) && <PlayerLobby />}
           
           {/* Day & Voting Phase */}
           {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}
