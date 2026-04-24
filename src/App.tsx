@@ -5,7 +5,6 @@ import { PlayerLobby } from './components/game/PlayerLobby'
 import { DayPhase } from './components/game/DayPhase'
 import { NightPhase } from './components/game/NightPhase'
 import { useGameStore } from './store/gameStore'
-import { Button } from './components/ui/Button'
 
 function App() {
   const { user, loading, error } = useAuth()

@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useSecretData, useGameData } from '../../hooks/useFirebaseSync';
-import { resolveNightActions } from '../../lib/rulesEngine';
+import { resolveNightActions, getNightSuggestions } from '../../lib/rulesEngine';
 import { Button } from '../ui/Button';
+import type { SecretRoomState } from '../../types/game';
 
 export function STNightDashboard() {
   const { roomId, roomState } = useGameStore();
   const { secretState, updateSecretState } = useSecretData(roomId, true);
   const { updatePublicState } = useGameData(roomId);
   const [loading, setLoading] = useState(false);
-  const [tempSecretState, setTempSecretState] = useState<any>(null);
+  const [tempSecretState, setTempSecretState] = useState<SecretRoomState | null>(null);
 
-  // Sync internal temp state when secretState loads
   useEffect(() => {
     if (secretState && !tempSecretState) {
       setTempSecretState(JSON.parse(JSON.stringify(secretState)));
@@ -26,27 +26,43 @@ export function STNightDashboard() {
   const allSubmitted = submittedCount >= totalPlayers;
 
   const handleUpdateResult = (uid: string, message: string) => {
-    setTempSecretState((prev: any) => ({
-      ...prev,
-      nightResults: {
-        ...prev.nightResults,
-        [uid]: { message }
-      }
-    }));
+    setTempSecretState((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        nightResults: {
+          ...(prev.nightResults || {}),
+          [uid]: { message }
+        }
+      };
+    });
+  };
+
+  const onGenerateSuggestions = () => {
+    if (!roomState || !secretState) return;
+    const suggestions = getNightSuggestions(roomState, secretState);
+    setTempSecretState((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        nightResults: {
+          ...(prev.nightResults || {}),
+          ...suggestions
+        }
+      };
+    });
   };
 
   const handleResolveAndWakeUp = async () => {
-    if (!roomId) return;
+    if (!roomId || !tempSecretState) return;
     setLoading(true);
 
     try {
-      // 1. First run the engine to get base calculations (poisoning, deaths, etc.)
       const { newPublicState, newSecretState } = resolveNightActions(roomState, secretState);
       
-      // 2. Override the results with ST's manually confirmed/edited info from temp state
       newSecretState.nightResults = {
-        ...newSecretState.nightResults,
-        ...tempSecretState.nightResults
+        ...(newSecretState.nightResults || {}),
+        ...(tempSecretState.nightResults || {})
       };
 
       newPublicState.status = 'day';
@@ -60,10 +76,9 @@ export function STNightDashboard() {
     }
   };
 
-  // Roles that need special ST attention
   const infoRoles = players.filter(p => {
     const s = secretState.players[p.uid];
-    return s && ['washerwoman', 'librarian', 'investigator', 'fortune_teller', 'butler'].includes(s.character || '');
+    return s && ['washerwoman', 'librarian', 'investigator', 'fortune_teller', 'butler', 'empath', 'undertaker'].includes(s.character || '');
   });
 
   return (
@@ -74,9 +89,13 @@ export function STNightDashboard() {
         <span>📖</span> 밤 페이즈 마도서 관리
       </h2>
 
-      {/* Checklist Section */}
       <div className="mb-8 relative z-10 space-y-4">
-        <h3 className="text-slate-300 font-bold text-sm uppercase tracking-wider">주요 정보 확인 및 수정</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-slate-300 font-bold text-sm uppercase tracking-wider">주요 정보 확인 및 수정</h3>
+          <Button variant="outline" size="sm" onClick={onGenerateSuggestions} className="text-[10px] h-7 px-2 border-amber-500/30 text-amber-400">
+             시스템 제안 생성
+          </Button>
+        </div>
         <div className="space-y-3">
           {infoRoles.length > 0 ? infoRoles.map(p => {
             const char = secretState.players[p.uid]?.character;

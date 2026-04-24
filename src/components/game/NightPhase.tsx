@@ -110,7 +110,9 @@ export function NightPhase({ isST }: { isST: boolean }) {
 
              <div className="flex flex-col gap-4 text-left">
                <div className="space-y-1.5">
-                 <label className="text-xs font-medium text-slate-400 pl-1 uppercase tracking-wider">대상 1 (선택사항)</label>
+                 <label className="text-xs font-medium text-slate-400 pl-1 uppercase tracking-wider">
+                   {actionType === 'two_targets' ? '조사할 대상 1' : actionLabel}
+                 </label>
                  <select 
                    value={target1} 
                    onChange={e => setTarget1(e.target.value)}
