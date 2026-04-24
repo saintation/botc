@@ -6,6 +6,7 @@ import { NightPhase } from './components/game/NightPhase'
 import { TownSquare } from './components/game/TownSquare'
 import { useGameStore } from './store/gameStore'
 import { useGameData } from './hooks/useFirebaseSync'
+import { Button } from './components/ui/Button'
 
 function App() {
   const { user, loading, error: authError } = useAuth()
@@ -85,8 +86,25 @@ function App() {
             
             {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}
             {user && role && isNightPhase && <NightPhase isST={role === 'st'} />}
-          </div>
-          
+
+            {/* Victory Screen */}
+            {roomState?.status === 'end' && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-6 animate-fade-in">
+                 <div className="bg-slate-900 border-2 border-amber-500/50 p-10 rounded-3xl shadow-[0_0_50px_rgba(245,158,11,0.2)] text-center max-w-sm w-full space-y-6 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
+                    <h2 className="text-4xl font-black text-amber-500 uppercase tracking-tighter italic italic-none font-serif">Game Concluded</h2>
+                    <p className="text-slate-400 text-sm font-medium leading-relaxed">악마가 처형되었거나 마을의 모든 위협이 사라졌습니다.</p>
+
+                    <div className="py-8 bg-slate-950/50 rounded-2xl border border-slate-800 shadow-inner">
+                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">Final Verdict</p>
+                       <p className="text-3xl font-black text-white uppercase tracking-widest">Victory</p>
+                    </div>
+
+                    <Button onClick={resetSession} variant="primary" size="lg" className="w-full font-black uppercase tracking-widest shadow-xl">New Grimoire</Button>
+                 </div>
+              </div>
+            )}
+            </div>          
           {role && (!roomState || roomState.status === 'lobby' || roomState.status === 'setup') && (
             <button 
               onClick={resetSession}

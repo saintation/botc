@@ -9,7 +9,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
   const { roomId, roomState } = useGameStore();
   const { updatePublicState } = useGameData(roomId);
-  const { nightResult, playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
+  const { nightResult } = usePlayerSecretData(roomId, user?.uid || null);
   const { secretState } = useSecretData(roomId, isST);
 
   if (!roomState || !user || !roomId) return null;
@@ -19,74 +19,41 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const currentNominationKey = roomState.nominations ? Object.keys(roomState.nominations)[0] : null;
   const currentNomination = currentNominationKey && roomState.nominations ? roomState.nominations[currentNominationKey] : null;
 
+  const alivePlayers = players.filter(p => !p.isDead);
+  const majorityNeeded = Math.ceil(alivePlayers.length / 2);
+
   const voters = currentNomination?.voters || {};
   const yesCount = Object.values(voters).filter(v => v === true).length;
   const noCount = Object.values(voters).filter(v => v === false).length;
 
-  const alivePlayers = players.filter(p => !p.isDead);
-  const majorityNeeded = Math.ceil(alivePlayers.length / 2);
-
   const handleNominate = async (targetUid: string, nominatorUid: string) => {
     if (!isST) return;
     
-    // VIRGIN LOGIC (Scene 4)
-    // If target is Virgin and hasn't been nominated before today, and nominator is Townsfolk
+    // VIRGIN LOGIC
     const targetSecret = secretState?.players[targetUid];
     const nominatorSecret = secretState?.players[nominatorUid];
-    
-    if (targetSecret?.character === 'virgin' && !targetSecret.isPoisoned && !targetSecret.isDrunk) {
+    if (targetSecret?.character === 'virgin' && !targetSecret.isPoisoned && !targetSecret.isDrunk && !targetSecret.isUsed) {
        if (nominatorSecret?.alignment === 'good' && !['butler', 'drunk', 'recluse', 'saint'].includes(nominatorSecret.character || '')) {
-          // IMMEDIATE EXECUTION
           const updates: Record<string, any> = {};
           updates[`public/rooms/${roomId}/players/${nominatorUid}/isDead`] = true;
           updates[`public/rooms/${roomId}/players/${nominatorUid}/hasGhostVote`] = true;
           updates[`public/rooms/${roomId}/lastExecutedUid`] = nominatorUid;
           updates[`public/rooms/${roomId}/status`] = 'night';
           updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
-          // Mark Virgin as used (using a dummy flag in secret state)
           updates[`secret/rooms/${roomId}/players/${targetUid}/isUsed`] = true;
-          
-          alert(`처녀의 능력이 발동되었습니다! 지목자 ${roomState.players[nominatorUid].name}님이 즉시 처형됩니다.`);
+          alert(`처녀(Virgin)의 능력이 발동되었습니다! 지목자 ${roomState.players[nominatorUid].name}님이 즉시 처형됩니다.`);
           await update(ref(database), updates);
           return;
        }
     }
 
-    const newNomination = {
-      targetUid,
-      nominatorUid,
-      yesVotes: 0,
-      noVotes: 0,
-      voters: {},
-    };
-
-    await updatePublicState({
-      status: 'voting',
-      nominations: { [targetUid]: newNomination },
-    });
+    const newNomination = { targetUid, nominatorUid, yesVotes: 0, noVotes: 0, voters: {} };
+    await updatePublicState({ status: 'voting', nominations: { [targetUid]: newNomination } });
   };
 
-  const handleSlayerAbility = async (targetUid: string) => {
-    if (isST || playerSecret?.character !== 'slayer') return;
-    const targetName = roomState.players[targetUid].name;
-    
-    if (window.confirm(`${targetName}님에게 학살자 능력을 사용하시겠습니까? (이 행동은 모두에게 공개됩니다)`)) {
-       const updates: Record<string, any> = {};
-       const eventId = Date.now().toString();
-       
-       // Check if target is Demon (Imp)
-       // We need secret state for this, so for MVP we record the shot and let ST resolve, 
-       // but here we can try to be smart if secretState is available (though usually not for players).
-       // So we just record the event and let ST trigger game end if needed.
-       
-       updates[`public/rooms/${roomId}/events/${eventId}`] = {
-          type: 'slayer_shot',
-          actorName: roomState.players[user.uid].name,
-          targetName: targetName,
-          timestamp: Date.now()
-       };
-       await update(ref(database), updates);
-    }
+  const handleCancelNomination = async () => {
+    if (!isST) return;
+    await updatePublicState({ status: 'day', nominations: null });
   };
 
   const handleVote = async (vote: boolean) => {
@@ -94,23 +61,20 @@ export function DayPhase({ isST }: { isST: boolean }) {
     const myPlayer = roomState.players[user.uid];
     if (myPlayer.isDead && !myPlayer.hasGhostVote) return;
 
-    // BUTLER RESTRICTION (Scene 5)
-    if (playerSecret?.character === 'butler' && vote === true) {
-       // Need to check if master voted yes. (Master UID is in nightResults)
-       // This is a bit complex for MVP client-side, we'll keep it as a UI warning for now.
+    const updates: Record<string, any> = {};
+    updates[`public/rooms/${roomId}/nominations/${currentNominationKey}/voters/${user.uid}`] = vote;
+    
+    // GHOST VOTE CONSUMPTION
+    if (myPlayer.isDead && vote === true) {
+       updates[`public/rooms/${roomId}/players/${user.uid}/hasGhostVote`] = false;
+       alert("유령 투표권을 사용하셨습니다! 이제 더 이상 찬성 투표를 할 수 없습니다.");
     }
 
-    const updates: Record<string, boolean | string | number | null> = {};
-    updates[`public/rooms/${roomId}/nominations/${currentNominationKey}/voters/${user.uid}`] = vote;
     await update(ref(database), updates);
   };
 
   const endVoting = async () => {
     if (!isST || !currentNominationKey || !currentNomination) return;
-    
-    const voters = currentNomination.voters || {};
-    const yesCount = Object.values(voters).filter(v => v === true).length;
-    
     const currentHighest = roomState.highestVotes || 0;
     const updates: Record<string, any> = {};
 
@@ -118,7 +82,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
        updates[`public/rooms/${roomId}/highestVotes`] = yesCount;
        updates[`public/rooms/${roomId}/executionTargetUid`] = currentNomination.targetUid;
     } else if (yesCount >= majorityNeeded && yesCount === currentHighest) {
-       // TIE logic: if tie, nobody is on the block
        updates[`public/rooms/${roomId}/executionTargetUid`] = null;
     }
 
@@ -129,13 +92,10 @@ export function DayPhase({ isST }: { isST: boolean }) {
 
   const finalizeDay = async () => {
     if (!isST) return;
-    
     const updates: Record<string, any> = {};
     const targetUid = roomState.executionTargetUid;
 
     if (targetUid) {
-       // SAINT LOGIC (Scene 5)
-       // If Saint is executed, evil wins.
        updates[`public/rooms/${roomId}/players/${targetUid}/isDead`] = true;
        updates[`public/rooms/${roomId}/players/${targetUid}/hasGhostVote`] = true;
        updates[`public/rooms/${roomId}/lastExecutedUid`] = targetUid;
@@ -147,7 +107,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
     updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
     updates[`public/rooms/${roomId}/highestVotes`] = 0;
     updates[`public/rooms/${roomId}/executionTargetUid`] = null;
-    
     await update(ref(database), updates);
   };
 
@@ -167,14 +126,11 @@ export function DayPhase({ isST }: { isST: boolean }) {
       <div className="bg-slate-900/80 p-5 rounded-xl border border-slate-800/80 backdrop-blur flex justify-between items-center shadow-sm">
         <div className="flex-1">
           <div className="flex justify-between items-start">
-            <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-2">
-              <span className="text-amber-400 text-xl font-serif">☀️</span>
-              {roomState.dayNumber}일차 낮
-            </h2>
+            <h2 className="text-xl font-black text-slate-200 uppercase tracking-tighter">Day {roomState.dayNumber}</h2>
             {roomState.executionTargetUid && (
               <div className="text-right">
-                <p className="text-[10px] text-rose-400 font-bold uppercase tracking-tighter">유력 후보</p>
-                <p className="text-xs text-white font-medium">{roomState.players[roomState.executionTargetUid]?.name} ({roomState.highestVotes}표)</p>
+                <p className="text-[10px] text-rose-500 font-black uppercase">Candidate</p>
+                <p className="text-xs text-white font-bold">{roomState.players[roomState.executionTargetUid]?.name} ({roomState.highestVotes} votes)</p>
               </div>
             )}
           </div>
@@ -182,64 +138,69 @@ export function DayPhase({ isST }: { isST: boolean }) {
       </div>
 
       {isVoting && currentNomination && (
-        <div className="bg-slate-950 p-6 rounded-xl border border-sky-500/30 text-center relative overflow-hidden shadow-2xl">
-          <h3 className="text-sky-400 font-bold mb-2 text-lg">투표 진행 중</h3>
-          <p className="text-slate-300 mb-6 text-lg font-medium">
-            <span className="text-slate-500 text-sm">지목자: {roomState.players[currentNomination.nominatorUid]?.name}</span><br/>
-            <span className="font-bold text-white text-xl">{roomState.players[currentNomination.targetUid]?.name}</span> 님이 지목되었습니다.
+        <div className="bg-slate-950 p-6 rounded-2xl border border-sky-500/30 text-center relative overflow-hidden shadow-2xl">
+          <h3 className="text-sky-400 font-black uppercase text-xs tracking-widest mb-4">Nomination in Progress</h3>
+          <p className="text-slate-300 mb-6 leading-tight">
+            <span className="text-slate-500 text-[10px] uppercase font-bold">By {roomState.players[currentNomination.nominatorUid]?.name}</span><br/>
+            <span className="font-black text-white text-2xl uppercase tracking-tighter">{roomState.players[currentNomination.targetUid]?.name}</span>
           </p>
           
-          <div className="flex justify-center gap-8 mb-8">
-            <div className="flex flex-col items-center bg-slate-900/50 p-4 rounded-xl border border-sky-500/20 w-28">
-              <span className="text-3xl font-bold text-sky-400 mb-1">{yesCount}</span>
-              <span className="text-xs font-medium text-slate-400">찬성</span>
-              <span className="text-[10px] text-slate-500 mt-1">(과반: {majorityNeeded})</span>
+          <div className="flex justify-center gap-6 mb-8">
+            <div className="flex flex-col items-center bg-slate-900/40 p-4 rounded-2xl border border-sky-500/10 w-24">
+              <span className="text-3xl font-black text-sky-400">{yesCount}</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase">Yes</span>
+              <span className="text-[8px] text-slate-600 mt-1">Min: {majorityNeeded}</span>
             </div>
-            <div className="flex flex-col items-center bg-slate-900/50 p-4 rounded-xl border border-rose-500/20 w-28">
-              <span className="text-3xl font-bold text-rose-400 mb-1">{noCount}</span>
-              <span className="text-xs font-medium text-slate-400">반대</span>
+            <div className="flex flex-col items-center bg-slate-900/40 p-4 rounded-2xl border border-rose-500/10 w-24">
+              <span className="text-3xl font-black text-rose-400">{noCount}</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase">No</span>
             </div>
           </div>
 
-          {!isST && (
-            <div className="flex gap-4 relative z-10">
-              <Button onClick={() => handleVote(true)} variant={voters[user.uid] === true ? "primary" : "secondary"} size="lg" className="flex-1">찬성</Button>
-              <Button onClick={() => handleVote(false)} variant={voters[user.uid] === false ? "danger" : "secondary"} size="lg" className="flex-1">반대</Button>
+          {!isST ? (
+            <div className="flex gap-4">
+              <Button onClick={() => handleVote(true)} variant={voters[user.uid] === true ? "primary" : "secondary"} size="lg" className="flex-1 font-black">YES</Button>
+              <Button onClick={() => handleVote(false)} variant={voters[user.uid] === false ? "danger" : "secondary"} size="lg" className="flex-1 font-black">NO</Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+               <Button onClick={endVoting} variant="primary" className="w-full font-black uppercase tracking-widest">Finalize Vote</Button>
+               <Button onClick={handleCancelNomination} variant="ghost" className="w-full text-xs text-slate-500">Cancel Nomination</Button>
             </div>
           )}
-
-          {isST && <Button onClick={endVoting} variant="primary" className="w-full">투표 결과 확정</Button>}
         </div>
       )}
 
       {!isST && nightResult && (
         <div className="bg-sky-500/5 p-4 rounded-xl border border-sky-500/20 text-center shadow-inner">
-          <h3 className="text-sky-500 text-[10px] font-black uppercase tracking-widest mb-1">Last Night Info</h3>
-          <p className="text-sm text-slate-300 italic">"{nightResult.message}"</p>
+          <h3 className="text-sky-500 text-[10px] font-black uppercase tracking-widest mb-1">Previous Night Intelligence</h3>
+          <p className="text-sm text-slate-300 italic font-serif">"{nightResult.message}"</p>
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {players.map((p) => (
-          <div key={p.uid} className={`bg-slate-900/40 p-3 rounded-lg border border-slate-800 flex items-center justify-between ${p.isDead ? 'opacity-50' : ''}`}>
-            <span className="text-sm font-bold text-slate-300 uppercase">{p.name}</span>
+          <div key={p.uid} className={cn(
+            "bg-slate-900/40 p-3 rounded-xl border border-slate-800 flex items-center justify-between transition-opacity",
+            p.isDead && "opacity-40"
+          )}>
+            <div className="flex items-center gap-3">
+               <span className="text-[10px] font-black text-slate-700 font-mono">{p.seatIndex + 1}</span>
+               <span className="text-xs font-black text-slate-300 uppercase tracking-tight">{p.name}</span>
+            </div>
             <div className="flex gap-2">
               {isST && !isVoting && !p.isDead && (
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1 justify-end max-w-[150px]">
                    {players.filter(n => !n.isDead).map(nominator => (
                       <button 
                         key={nominator.uid}
                         onClick={() => handleNominate(p.uid, nominator.uid)}
-                        className="text-[9px] bg-slate-800 hover:bg-rose-500 text-slate-400 px-1.5 py-1 rounded transition-colors"
-                        title={`${nominator.name}이 지목`}
+                        className="text-[9px] bg-slate-800 hover:bg-rose-600 text-slate-500 font-black px-1.5 py-0.5 rounded transition-all uppercase"
                       >
                         {nominator.name.substring(0, 1)}
                       </button>
                    ))}
                 </div>
-              )}
-              {!isST && playerSecret?.character === 'slayer' && !p.isDead && p.uid !== user.uid && (
-                <Button onClick={() => handleSlayerAbility(p.uid)} variant="danger" size="sm" className="h-7 text-[10px] font-black">SLAYER SHOT</Button>
               )}
             </div>
           </div>
@@ -247,10 +208,14 @@ export function DayPhase({ isST }: { isST: boolean }) {
       </div>
 
       {isST && !isVoting && (
-        <Button onClick={finalizeDay} variant="danger" size="lg" className="w-full mt-4 font-black shadow-xl border-transparent uppercase tracking-widest">
-          {roomState.executionTargetUid ? 'Finalize Execution' : 'Skip Execution'}
+        <Button onClick={finalizeDay} variant="danger" size="lg" className="w-full mt-4 font-black shadow-xl border-transparent uppercase tracking-[0.2em]">
+          {roomState.executionTargetUid ? 'Execute & Go to Night' : 'Skip Execution'}
         </Button>
       )}
     </div>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }

@@ -38,11 +38,13 @@ export interface PublicRoomState {
 
 export interface SecretPlayer {
   character: RoleType | null; 
-  fakeCharacter?: RoleType | null; // 취객이 보는 가짜 직업
+  fakeCharacter?: RoleType | null; 
   alignment: Alignment | null;
   isDrunk: boolean;
   isPoisoned: boolean;
   bluffs: RoleType[]; 
+  isUsed?: boolean; // For once-per-game abilities like Virgin
+  isRedHerring?: boolean; // For Fortune Teller
 }
 
 export interface NightAction {
