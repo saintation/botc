@@ -1,4 +1,3 @@
-import { useState as setRoleState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { STLobby } from './components/game/STLobby'
 import { PlayerLobby } from './components/game/PlayerLobby'
@@ -9,17 +8,10 @@ import { useGameData } from './hooks/useFirebaseSync'
 
 function App() {
   const { user, loading, error: authError } = useAuth()
-  const { roomId, roomState, setRoomId } = useGameStore()
-  const [role, setRoleLocal] = setRoleState<'st' | 'player' | null>(localStorage.getItem('botc_role') as 'st' | 'player')
+  const { roomId, roomState, role, setRole, setRoomId } = useGameStore()
 
   // Core Sync: Listen for game data whenever roomId is present
   const { error: syncError } = useGameData(roomId)
-
-  const setRole = (newRole: 'st' | 'player' | null) => {
-    if (newRole) localStorage.setItem('botc_role', newRole);
-    else localStorage.removeItem('botc_role');
-    setRoleLocal(newRole);
-  };
 
   const resetSession = () => {
     setRole(null);
@@ -32,7 +24,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 animate-fade-in">
-      <div className="bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-md w-full flex flex-col items-center border border-slate-800/80 backdrop-blur-sm">
+      <div className="bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-md w-full flex flex-col items-center border border-slate-800/80 backdrop-blur-sm relative overflow-hidden">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-sky-400 to-sky-600 mb-8 text-center tracking-tight drop-shadow-sm">
           BotC Digital Grimoire
         </h1>
@@ -40,10 +32,7 @@ function App() {
         <div className="text-slate-300 mb-6 text-center w-full">
           {loading && (
             <div className="flex flex-col items-center justify-center py-10 gap-3">
-               <svg className="animate-spin h-8 w-8 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-               </svg>
+               <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
                <p className="text-sm font-medium text-slate-400">인증 확인 중...</p>
             </div>
           )}
@@ -58,17 +47,17 @@ function App() {
           {user && role && roomId && !roomState && (
              <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
                 <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sky-400 font-medium tracking-wide animate-pulse">마도서 기록 복구 중...</p>
-                <p className="text-xs text-slate-500 max-w-[200px] leading-relaxed">네트워크 상태가 좋지 않거나 방이 사라졌을 수 있습니다.</p>
+                <p className="text-sky-400 font-medium tracking-wide animate-pulse">마도서 동기화 중...</p>
                 <button onClick={resetSession} className="text-sm text-slate-400 underline mt-6 hover:text-white transition-colors">기록 삭제하고 처음으로 돌아가기</button>
              </div>
           )}
 
-          {user && !role && !roomState && !roomId && (
+          {user && !role && !roomId && (
             <div className="flex flex-col gap-8 mt-2 w-full animate-fade-in">
               <div className="space-y-4">
                 <PlayerLobby />
               </div>
+
               <div className="pt-6 border-t border-slate-800/50">
                 <button 
                   onClick={() => setRole('st')}
@@ -84,10 +73,7 @@ function App() {
           {user && role === 'st' && (roomState?.status === 'lobby' || roomState?.status === 'setup' || !roomState) && <STLobby />}
           {user && role === 'player' && roomState && (roomState?.status === 'lobby' || roomState?.status === 'setup') && <PlayerLobby />}
           
-          {/* Day & Voting Phase */}
           {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}
-          
-          {/* Night Phase Component */}
           {user && role && isNightPhase && <NightPhase isST={role === 'st'} />}
         </div>
         

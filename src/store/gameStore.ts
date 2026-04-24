@@ -5,10 +5,12 @@ interface GameState {
   // 상태
   roomState: PublicRoomState | null;
   roomId: string | null;
+  role: 'st' | 'player' | null;
   
   // 액션 (Firebase 연동 전 UI 테스트용 또는 로컬 반영용)
   setRoomState: (state: PublicRoomState) => void;
   setRoomId: (id: string | null) => void;
+  setRole: (role: 'st' | 'player' | null) => void;
   nominatePlayer: (targetUid: string, nominatorUid: string) => void;
   updatePhase: (newPhase: GamePhase) => void;
 }
@@ -24,13 +26,20 @@ export const initialMockState: PublicRoomState = {
 export const useGameStore = create<GameState>((set) => ({
   roomState: null,
   roomId: localStorage.getItem('botc_room_id'),
+  role: localStorage.getItem('botc_role') as 'st' | 'player' | null,
 
   setRoomState: (state) => set({ roomState: state }),
   
-  setRoomId: (id: string | null) => {
+  setRoomId: (id) => {
     if (id) localStorage.setItem('botc_room_id', id);
     else localStorage.removeItem('botc_room_id');
     set({ roomId: id });
+  },
+
+  setRole: (role) => {
+    if (role) localStorage.setItem('botc_role', role);
+    else localStorage.removeItem('botc_role');
+    set({ role });
   },
 
   nominatePlayer: (targetUid, nominatorUid) => set((state) => {

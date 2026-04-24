@@ -8,8 +8,7 @@ import { Button } from '../ui/Button';
 
 export function PlayerLobby() {
   const { user } = useAuth();
-  const { roomId, setRoomId } = useGameStore();
-  const { roomState } = useGameStore();
+  const { roomId, setRoomId, setRole, roomState } = useGameStore();
   useGameData(roomId); // Sync data if roomId exists
 
   const [inputCode, setInputCode] = useState('');
@@ -52,6 +51,8 @@ export function PlayerLobby() {
         seatIndex: players[user.uid]?.seatIndex ?? -1,
       });
 
+      // KEY FIX: Set role first then roomId to trigger correct rendering in App.tsx
+      setRole('player');
       setRoomId(inputCode);
     } catch (err: unknown) {
       console.error(err);
