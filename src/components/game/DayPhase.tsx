@@ -113,7 +113,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const yesCount = Object.values(voters).filter(v => v === true).length;
   const noCount = Object.values(voters).filter(v => v === false).length;
 
-  const events = (roomState as any).events || {};
+  const events = roomState.events || {};
   const lastEventId = Object.keys(events).sort().pop();
   const lastEvent = lastEventId ? events[lastEventId] : null;
 

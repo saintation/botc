@@ -18,14 +18,22 @@ export interface Nomination {
   voters: Record<string, boolean>;
 }
 
+export interface GameEvent {
+  type: 'slayer_shot' | 'nomination' | 'execution';
+  actorName: string;
+  targetName: string;
+  timestamp: number;
+}
+
 export interface PublicRoomState {
   status: GamePhase;
   players: Record<string, PublicPlayer>;
   dayNumber: number;
   nominations: Record<string, Nomination> | null;
   lastExecutedUid?: string | null; 
-  highestVotes?: number; // 이번 낮에 나온 최고 득표수
-  executionTargetUid?: string | null; // 현재 처형 후보자
+  highestVotes?: number; 
+  executionTargetUid?: string | null; 
+  events?: Record<string, GameEvent>;
 }
 
 export interface SecretPlayer {

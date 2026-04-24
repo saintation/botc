@@ -114,12 +114,15 @@ export function STNightDashboard() {
                  </div>
                )}
 
-               <textarea 
-                  value={result || ""}
-                  onChange={(e) => handleUpdateResult(p.uid, e.target.value)}
-                  placeholder="No info for this player..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-[11px] text-sky-400 font-medium outline-none focus:border-amber-500 min-h-[50px] custom-scrollbar"
-               />
+               <div className="space-y-1">
+                 <p className="text-[9px] font-black text-sky-500 uppercase tracking-tighter ml-1">Message to Player</p>
+                 <textarea 
+                    value={result || ""}
+                    onChange={(e) => handleUpdateResult(p.uid, e.target.value)}
+                    placeholder="No info for this player..."
+                    className="w-full bg-slate-900 border border-sky-500/20 rounded-lg p-2 text-[11px] text-sky-300 font-medium outline-none focus:border-amber-500 min-h-[50px] custom-scrollbar shadow-inner"
+                 />
+               </div>
             </div>
           ))}
         </div>
