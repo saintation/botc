@@ -1,5 +1,6 @@
 import type { PublicRoomState, SecretRoomState } from '../types/game';
 import type { RoleType } from '../types/character';
+import { handleDemonDeath, checkWinCondition } from './gameLogic';
 
 const isDemon = (character: RoleType | null) => character === 'imp';
 const isEvil = (alignment: string | null) => alignment === 'evil';
@@ -92,20 +93,13 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
   const actions = newSecretState.nightActions || {};
   const protectedUids = new Set<string>();
 
-  const impUid = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp')?.[0];
-  const isImpDead = impUid ? newPublicState.players[impUid]?.isDead : false;
-  const aliveCount = Object.values(newPublicState.players).filter(p => !p.isDead).length;
+  // 1. 상태 리셋
+  Object.keys(newSecretState.players).forEach(uid => {
+    newSecretState.players[uid].isPoisoned = false;
+  });
 
-  if (isImpDead && aliveCount >= 5) {
-    const swEntry = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'scarlet_woman' && !newPublicState.players[_].isDead);
-    if (swEntry) {
-      newSecretState.players[swEntry[0]].character = 'imp';
-    }
-  }
-
-  const suggestions = getNightSuggestions(publicState, secretState);
-  newSecretState.nightResults = { ...(newSecretState.nightResults || {}), ...suggestions };
-
+  // 2. 밤의 액션 처리 (공식 순서)
+  // Priority: Poisoner
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
     if (p.character === 'poisoner' && !p.isPoisoned && !p.isDrunk && !newPublicState.players[uid].isDead) {
@@ -113,6 +107,7 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
+  // Priority: Monk
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
     if (p.character === 'monk' && !p.isPoisoned && !p.isDrunk && !newPublicState.players[uid].isDead) {
@@ -120,6 +115,7 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
+  // Priority: Imp
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
     if (p.character === 'imp' && !p.isPoisoned && !p.isDrunk && !newPublicState.players[uid].isDead && publicState.dayNumber > 1) {
@@ -133,17 +129,21 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
-  // 3. 승리 조건 체크 (Scenario Scene 6)
-  const finalAliveCount = Object.values(newPublicState.players).filter(p => !p.isDead).length;
-  const currentImp = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp' && !newPublicState.players[_].isDead);
-  
-  if (!currentImp) {
-    newPublicState.status = 'end';
-    newPublicState.winner = 'good';
-  } else if (finalAliveCount <= 2) {
-    newPublicState.status = 'end';
-    newPublicState.winner = 'evil';
+  // 3. 악마 계승 체크 (Imp 사망 여부 확인)
+  const impEntry = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp');
+  if (impEntry && newPublicState.players[impEntry[0]]?.isDead) {
+     handleDemonDeath(newPublicState, newSecretState);
   }
+
+  // 4. 승리 조건 체크
+  const winner = checkWinCondition(newPublicState, newSecretState);
+  if (winner) {
+    newPublicState.status = 'end';
+    newPublicState.winner = winner;
+  }
+
+  const suggestions = getNightSuggestions(publicState, secretState);
+  newSecretState.nightResults = { ...(newSecretState.nightResults || {}), ...suggestions };
 
   newSecretState.nightActions = {};
   return { newPublicState, newSecretState };
