@@ -14,15 +14,18 @@ export function NightPhase({ isST }: { isST: boolean }) {
   const [target1, setTarget1] = useState<string>('');
   const [target2, setTarget2] = useState<string>('');
   const [submitted, setSubmitted] = useState(false);
+  const [evilConfirmed, setEvilConfirmed] = useState(false);
 
   if (!roomState || !user || !roomId) return null;
 
   const playersList = Object.values(roomState.players).sort((a, b) => a.seatIndex - b.seatIndex);
-  
   const role = playerSecret?.fakeCharacter || playerSecret?.character;
   const realRole = playerSecret?.character;
   const isFirstNight = roomState.dayNumber === 1;
   const isDead = roomState.players[user.uid]?.isDead;
+
+  // EVIL INFO CHECK: Must confirm info before acting on Night 1
+  const needsEvilInfo = isFirstNight && playerSecret?.alignment === 'evil' && !evilConfirmed;
 
   let needsRealAction = false;
   let actionType: 'none' | 'one_target' | 'two_targets' = 'none';
@@ -54,90 +57,95 @@ export function NightPhase({ isST }: { isST: boolean }) {
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-lg text-center animate-fade-in pb-10">
-      <div className="bg-slate-900/90 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl backdrop-blur-md relative overflow-hidden">
-        {/* Night Header */}
+      <div className="bg-slate-900/95 p-6 sm:p-8 rounded-[2rem] border border-slate-800 shadow-2xl backdrop-blur-md relative overflow-hidden">
         <h2 className="text-2xl font-black text-slate-200 mb-6 flex items-center justify-center gap-2">
-          <span className="text-sky-400 font-serif">🌙</span> Night {roomState.dayNumber}
+          <span className="text-sky-500 font-serif">🌙</span> Night {roomState.dayNumber}
         </h2>
         
-        {/* EVIL INFO - Priority 1 (Scene 3) */}
-        {isFirstNight && playerSecret?.alignment === 'evil' && secretState?.evilInfo && (
-           <div className="mb-6 p-4 bg-rose-500/5 rounded-2xl border border-rose-500/20 text-left animate-fade-in">
-              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2">Evil Dossier</p>
-              {realRole === 'imp' ? (
-                <>
-                  <p className="text-[11px] text-slate-300 font-medium mb-1">하수인: <span className="text-rose-400">{secretState.evilInfo.minionUids.map(uid => roomState.players[uid]?.name).join(', ') || '없음'}</span></p>
-                  <p className="text-[11px] text-slate-300 font-medium">가짜 직업: <span className="text-sky-400">{secretState.evilInfo.bluffs.join(', ')}</span></p>
-                </>
-              ) : (
-                <p className="text-[11px] text-slate-300 font-medium">악마: <span className="text-rose-400">{roomState.players[secretState.evilInfo.demonUid]?.name}</span></p>
-              )}
+        {needsEvilInfo ? (
+           <div className="space-y-6 animate-fade-in">
+              <div className="p-6 bg-rose-500/10 rounded-2xl border border-rose-500/30 text-left shadow-inner">
+                <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] mb-4">Secret Intelligence Briefing</p>
+                {realRole === 'imp' ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-300">당신은 <span className="text-rose-500 font-black">악마(IMP)</span>입니다.</p>
+                    <p className="text-xs text-slate-300">하수인 동료: <span className="text-white font-bold">{secretState?.evilInfo?.minionUids.map(uid => roomState.players[uid]?.name).join(', ') || '없음'}</span></p>
+                    <p className="text-xs text-slate-300">악마 블러프(가짜 직업): <span className="text-sky-400 font-bold">{secretState?.evilInfo?.bluffs.join(', ')}</span></p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-300">당신은 <span className="text-rose-500 font-black">하수인(MINION)</span>입니다.</p>
+                    <p className="text-xs text-slate-300">당신의 악마: <span className="text-white font-bold">{roomState.players[secretState?.evilInfo?.demonUid || '']?.name}</span></p>
+                  </div>
+                )}
+              </div>
+              <Button onClick={() => setEvilConfirmed(true)} variant="primary" size="lg" className="w-full font-black uppercase tracking-widest h-14">상황 확인 완료</Button>
            </div>
-        )}
-
-        {/* Identity Section */}
-        {playerSecret && (
-           <div className="mb-8 p-5 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner">
-             <p className="text-[9px] font-black text-slate-600 tracking-[0.2em] uppercase mb-1">Your True Identity</p>
-             <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-sky-100 uppercase">{role || 'WAITING'}</p>
-           </div>
-        )}
-
-        {submitted ? (
-          <div className="py-12 flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center animate-pulse">
-              <span className="text-emerald-400 text-2xl font-black">✓</span>
-            </div>
-            <p className="text-emerald-400/90 font-black uppercase text-xs tracking-widest">Action Logged</p>
-          </div>
         ) : (
-          <div className="space-y-8 text-left">
-             <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-800 flex items-center gap-3 shadow-sm">
-               <span className="text-amber-500">✨</span>
-               <p className="text-xs text-slate-300 font-medium leading-relaxed italic">{actionLabel}</p>
-             </div>
+          <>
+            {/* Identity Badge */}
+            <div className="mb-8 p-5 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner">
+              <p className="text-[9px] font-black text-slate-600 tracking-[0.2em] uppercase mb-1">Your Identity</p>
+              <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-sky-100 uppercase tracking-tighter">{role || 'WAITING'}</p>
+            </div>
 
-             <div className="space-y-4">
-               <div className="space-y-1.5">
-                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Choice A</label>
-                 <select 
-                   value={target1} 
-                   onChange={e => setTarget1(e.target.value)}
-                   className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl p-4 outline-none focus:border-sky-500 transition-all shadow-md appearance-none font-bold"
-                 >
-                   <option value="">-- NO ONE --</option>
-                   {playersList.map(p => (
-                     <option key={p.uid} value={p.uid}>{p.name} {p.isDead ? '(DEAD)' : ''}</option>
-                   ))}
-                 </select>
-               </div>
+            {submitted ? (
+              <div className="py-12 flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center animate-pulse">
+                  <span className="text-emerald-400 text-3xl font-black">✓</span>
+                </div>
+                <p className="text-emerald-400/90 font-black uppercase text-[10px] tracking-[0.2em]">Action Transmitted</p>
+              </div>
+            ) : (
+              <div className="space-y-8 text-left">
+                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
+                  <span className="text-amber-500 animate-pulse">●</span>
+                  <p className="text-xs text-slate-300 font-medium leading-relaxed italic">{actionLabel}</p>
+                </div>
 
-               {actionType === 'two_targets' && (
-                 <div className="space-y-1.5 animate-fade-in">
-                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Choice B</label>
-                   <select 
-                     value={target2} 
-                     onChange={e => setTarget2(e.target.value)}
-                     className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl p-4 outline-none focus:border-sky-500 transition-all shadow-md appearance-none font-bold"
-                   >
-                     <option value="">-- NO ONE --</option>
-                     {playersList.map(p => (
-                       <option key={p.uid} value={p.uid}>{p.name} {p.isDead ? '(DEAD)' : ''}</option>
-                     ))}
-                   </select>
-                 </div>
-               )}
-             </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Target Selection</label>
+                    <select 
+                      value={target1} 
+                      onChange={e => setTarget1(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl p-4 outline-none focus:border-sky-500 transition-all shadow-md appearance-none font-bold"
+                    >
+                      <option value="">-- NO ONE --</option>
+                      {playersList.map(p => (
+                        <option key={p.uid} value={p.uid}>{p.name} {p.isDead ? '(DEAD)' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
 
-             <Button 
-               onClick={handleSubmit}
-               variant={needsRealAction ? "primary" : "secondary"}
-               size="lg"
-               className="w-full mt-6 font-black uppercase tracking-widest shadow-2xl h-14"
-             >
-               Confirm Night Action
-             </Button>
-          </div>
+                  {actionType === 'two_targets' && (
+                    <div className="space-y-2 animate-fade-in">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Secondary Target</label>
+                      <select 
+                        value={target2} 
+                        onChange={e => setTarget2(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl p-4 outline-none focus:border-sky-500 transition-all shadow-md appearance-none font-bold"
+                      >
+                        <option value="">-- NO ONE --</option>
+                        {playersList.map(p => (
+                          <option key={p.uid} value={p.uid}>{p.name} {p.isDead ? '(DEAD)' : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <Button 
+                  onClick={handleSubmit}
+                  variant={needsRealAction ? "primary" : "secondary"}
+                  size="lg"
+                  className="w-full mt-6 font-black uppercase tracking-widest shadow-2xl h-14 border-transparent"
+                >
+                  {needsRealAction ? 'Commit Action' : 'Confirm & Wait'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

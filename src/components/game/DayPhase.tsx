@@ -1,5 +1,5 @@
 import { useGameStore } from '../../store/gameStore';
-import { useGameData, usePlayerSecretData } from '../../hooks/useFirebaseSync';
+import { useGameData, usePlayerSecretData, useSecretData } from '../../hooks/useFirebaseSync';
 import { database } from '../../lib/firebase';
 import { ref, update } from 'firebase/database';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,6 +10,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const { roomId, roomState } = useGameStore();
   const { updatePublicState } = useGameData(roomId);
   const { nightResult, playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
+  const { secretState } = useSecretData(roomId, isST);
 
   if (!roomState || !user || !roomId) return null;
 
@@ -27,6 +28,22 @@ export function DayPhase({ isST }: { isST: boolean }) {
 
   const handleNominate = async (targetUid: string, nominatorUid: string) => {
     if (!isST) return;
+    const targetSecret = secretState?.players[targetUid];
+    const nominatorSecret = secretState?.players[nominatorUid];
+    if (targetSecret?.character === 'virgin' && !targetSecret.isPoisoned && !targetSecret.isDrunk && !targetSecret.isUsed) {
+       if (nominatorSecret?.alignment === 'good' && !['butler', 'drunk', 'recluse', 'saint'].includes(nominatorSecret.character || '')) {
+          const updates: Record<string, any> = {};
+          updates[`public/rooms/${roomId}/players/${nominatorUid}/isDead`] = true;
+          updates[`public/rooms/${roomId}/players/${nominatorUid}/hasGhostVote`] = true;
+          updates[`public/rooms/${roomId}/lastExecutedUid`] = nominatorUid;
+          updates[`public/rooms/${roomId}/status`] = 'night';
+          updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
+          updates[`secret/rooms/${roomId}/players/${targetUid}/isUsed`] = true;
+          alert(`처녀(Virgin) 능력이 발동되었습니다! 지목자 ${roomState.players[nominatorUid].name}님이 즉시 처형됩니다.`);
+          await update(ref(database), updates);
+          return;
+       }
+    }
     const newNomination = { targetUid, nominatorUid, yesVotes: 0, noVotes: 0, voters: {} };
     await updatePublicState({ status: 'voting', nominations: { [targetUid]: newNomination } });
   };
@@ -40,10 +57,12 @@ export function DayPhase({ isST }: { isST: boolean }) {
     if (isST || !currentNominationKey || !currentNomination) return;
     const myPlayer = roomState.players[user.uid];
     if (myPlayer.isDead && !myPlayer.hasGhostVote) return;
-
     const updates: Record<string, any> = {};
     updates[`public/rooms/${roomId}/nominations/${currentNominationKey}/voters/${user.uid}`] = vote;
-    if (myPlayer.isDead && vote === true) updates[`public/rooms/${roomId}/players/${user.uid}/hasGhostVote`] = false;
+    if (myPlayer.isDead && vote === true) {
+       updates[`public/rooms/${roomId}/players/${user.uid}/hasGhostVote`] = false;
+       alert("유령 투표권을 사용하셨습니다!");
+    }
     await update(ref(database), updates);
   };
 
@@ -69,6 +88,9 @@ export function DayPhase({ isST }: { isST: boolean }) {
     if (targetUid) {
        updates[`public/rooms/${roomId}/players/${targetUid}/isDead`] = true;
        updates[`public/rooms/${roomId}/players/${targetUid}/hasGhostVote`] = true;
+       updates[`public/rooms/${roomId}/lastExecutedUid`] = targetUid;
+    } else {
+       updates[`public/rooms/${roomId}/lastExecutedUid`] = null;
     }
     updates[`public/rooms/${roomId}/status`] = 'night';
     updates[`public/rooms/${roomId}/dayNumber`] = roomState.dayNumber + 1;
@@ -93,20 +115,40 @@ export function DayPhase({ isST }: { isST: boolean }) {
     }
   };
 
+  const handleResolveSlayer = async (success: boolean) => {
+    if (!isST || !lastEvent) return;
+    const updates: Record<string, any> = {};
+    if (success) {
+       const targetUid = Object.keys(roomState.players).find(k => roomState.players[k].name === lastEvent.targetName);
+       if (targetUid) {
+          updates[`public/rooms/${roomId}/players/${targetUid}/isDead`] = true;
+          updates[`public/rooms/${roomId}/players/${targetUid}/hasGhostVote`] = true;
+          updates[`public/rooms/${roomId}/status`] = 'end'; 
+       }
+    }
+    updates[`public/rooms/${roomId}/events/${lastEventId}`] = null;
+    await update(ref(database), updates);
+  };
+
   const events = roomState.events || {};
   const lastEventId = Object.keys(events).sort().pop();
   const lastEvent = lastEventId ? events[lastEventId] : null;
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-lg animate-fade-in pb-20">
-      {isST && lastEvent && lastEvent.type === 'slayer_shot' && (Date.now() - lastEvent.timestamp < 10000) && (
-        <div className="bg-rose-600 text-white p-4 rounded-xl shadow-2xl animate-bounce text-center font-bold">
-           📢 학살자 능력 발동! <br/>
-           {lastEvent.actorName} {'->'} {lastEvent.targetName}
+      {isST && lastEvent && lastEvent.type === 'slayer_shot' && (Date.now() - lastEvent.timestamp < 60000) && (
+        <div className="bg-rose-600 text-white p-6 rounded-[2rem] shadow-2xl animate-bounce text-center space-y-4">
+           <div>
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Critical Event: Slayer Shot</p>
+              <p className="text-lg font-black">{lastEvent.actorName} {'->'} {lastEvent.targetName}</p>
+           </div>
+           <div className="flex gap-2">
+              <Button onClick={() => handleResolveSlayer(true)} variant="primary" className="flex-1 bg-white text-rose-600 font-black">악마 사망 (성공)</Button>
+              <Button onClick={() => handleResolveSlayer(false)} variant="secondary" className="flex-1 bg-rose-800 text-white border-transparent font-black">불발 (실패)</Button>
+           </div>
         </div>
       )}
 
-      {/* Voting Panel */}
       {isVoting && currentNomination && (
         <div className="bg-slate-950 p-6 rounded-3xl border border-sky-500/30 text-center relative overflow-hidden shadow-2xl">
           <h3 className="text-sky-400 font-black uppercase text-[10px] tracking-[0.2em] mb-4">Nomination Activity</h3>
@@ -137,7 +179,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      {/* Info Message for Players */}
       {!isST && nightResult && (
         <div className="bg-sky-500/5 p-5 rounded-2xl border border-sky-500/20 text-center shadow-inner">
           <h3 className="text-sky-500 text-[9px] font-black uppercase tracking-[0.2em] mb-2">Morning Intelligence</h3>
@@ -145,35 +186,40 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      {/* Slayer Special Action Button */}
+      {/* Slayer Special Action */}
       {!isST && playerSecret?.character === 'slayer' && !roomState.players[user.uid]?.isDead && (
-         <div className="bg-rose-950/20 p-4 rounded-2xl border border-rose-500/20 text-center animate-pulse shadow-lg mt-4">
-            <p className="text-[10px] text-rose-400 font-bold mb-3 uppercase tracking-widest underline underline-offset-4 decoration-rose-500/30">학살자 전용 능력</p>
+         <div className="bg-rose-950/20 p-4 rounded-2xl border border-rose-500/20 text-center shadow-lg mt-4">
+            <p className="text-[10px] text-rose-400 font-bold mb-3 uppercase tracking-widest">Slayer Shot Available</p>
             <div className="flex flex-wrap gap-2 justify-center">
                {players.filter(p => !p.isDead && p.uid !== user.uid).map(p => (
                  <button key={p.uid} onClick={() => handleSlayerShot(p.uid)} className="bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-black px-2 py-1 rounded-md transition-all">
-                    {p.name} SHOOT
+                    {p.name}
                  </button>
                ))}
             </div>
          </div>
       )}
 
-      {/* ST Control Panel */}
       {isST && (
         <div className="bg-slate-900/60 p-6 rounded-3xl border border-slate-800 backdrop-blur shadow-xl mt-4">
            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2 flex justify-between">
               <span>Admin Controls</span>
-              {roomState.executionTargetUid && <span className="text-rose-400 font-black">Candidate: {roomState.players[roomState.executionTargetUid]?.name}</span>}
+              {roomState.executionTargetUid && <span className="text-rose-400 font-black">On the Block: {roomState.players[roomState.executionTargetUid]?.name}</span>}
            </h3>
            {!isVoting ? (
              <div className="space-y-4">
-                <p className="text-[10px] text-slate-400 mb-2 uppercase font-bold tracking-tighter">Quick Nomination (ST Only)</p>
-                <div className="grid grid-cols-2 gap-2 max-h-[20vh] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-2 gap-2 max-h-[25vh] overflow-y-auto pr-1 custom-scrollbar">
                    {players.filter(p => !p.isDead).map(p => (
-                      <Button key={p.uid} onClick={() => handleNominate(p.uid, 'system')} variant="outline" size="sm" className="h-8 text-[9px] font-black border-slate-800 hover:border-rose-500/50">
-                         NOMINATE {p.name}
-                      </Button>
+                      <div key={p.uid} className="flex flex-col gap-1">
+                         <p className="text-[8px] text-slate-600 font-black text-center">{p.name}</p>
+                         <div className="flex gap-1">
+                            {players.filter(n => !n.isDead).map(nominator => (
+                               <button key={nominator.uid} onClick={() => handleNominate(p.uid, nominator.uid)} className="flex-1 text-[8px] bg-slate-950 hover:bg-rose-900 text-slate-500 py-1 rounded border border-slate-800 uppercase font-black">
+                                  {nominator.name.substring(0,1)}
+                               </button>
+                            ))}
+                         </div>
+                      </div>
                    ))}
                 </div>
                 <Button onClick={finalizeDay} variant="danger" size="lg" className="w-full mt-6 font-black uppercase tracking-widest h-14 shadow-2xl border-transparent">
@@ -181,7 +227,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
                 </Button>
              </div>
            ) : (
-             <p className="text-xs text-slate-500 italic text-center py-4 uppercase font-black tracking-widest animate-pulse">Vote in progress...</p>
+             <p className="text-xs text-slate-500 italic text-center py-4 uppercase font-black animate-pulse">Voting...</p>
            )}
         </div>
       )}
