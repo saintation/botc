@@ -18,6 +18,13 @@ export interface Nomination {
   voters: Record<string, boolean>;
 }
 
+export interface NominationRecord {
+  targetName: string;
+  nominatorName: string;
+  yesCount: number;
+  voterNames: string[];
+}
+
 export interface GameEvent {
   type: 'slayer_shot' | 'nomination' | 'execution';
   actorName: string;
@@ -36,7 +43,8 @@ export interface PublicRoomState {
   events?: Record<string, GameEvent>;
   usedNominators?: string[]; 
   usedTargets?: string[];
-  winner?: 'good' | 'evil' | null; // Winner team
+  winner?: 'good' | 'evil' | null; 
+  nominationHistory?: NominationRecord[]; // 오늘 진행된 투표 기록
 }
 
 export interface SecretPlayer {
