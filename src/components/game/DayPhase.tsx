@@ -4,13 +4,17 @@ import { database } from '../../lib/firebase';
 import { ref, update } from 'firebase/database';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
+import { getRoleName } from '../../constants/roles';
+import { useState } from 'react';
 
 export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
   const { roomId, roomState } = useGameStore();
   const { updatePublicState } = useGameData(roomId);
-  const { nightResult, playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
+  const { playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
   const { secretState } = useSecretData(roomId, isST);
+
+  const [showPlayerLog, setShowPlayerLog] = useState(false);
 
   if (!roomState || !user || !roomId) return null;
 
@@ -178,13 +182,48 @@ export function DayPhase({ isST }: { isST: boolean }) {
           )}
         </div>
       )}
+{/* Player Identity & History Log */}
+{!isST && (
+  <div className="bg-slate-900/80 rounded-2xl border border-slate-800 backdrop-blur shadow-lg overflow-hidden">
+    <button 
+      onClick={() => setShowPlayerLog(!showPlayerLog)}
+      className="w-full p-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+         <span className="text-sky-500 font-serif text-lg">🎭</span>
+         <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">My Identity & Intel</span>
+      </div>
+      <span className={`text-slate-500 transition-transform duration-300 ${showPlayerLog ? 'rotate-180' : ''}`}>▼</span>
+    </button>
 
-      {!isST && nightResult && (
-        <div className="bg-sky-500/5 p-5 rounded-2xl border border-sky-500/20 text-center shadow-inner">
-          <h3 className="text-sky-500 text-[9px] font-black uppercase tracking-[0.2em] mb-2">Morning Intelligence</h3>
-          <p className="text-sm text-slate-300 italic font-serif leading-relaxed">"{nightResult.message}"</p>
-        </div>
-      )}
+    {showPlayerLog && (
+      <div className="p-4 pt-0 space-y-4 animate-fade-in border-t border-slate-800/50 mt-1 bg-slate-950/30">
+         <div className="py-3 px-4 bg-slate-950/80 rounded-xl border border-slate-800 shadow-inner">
+            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Your Role</p>
+            <p className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-sky-100 uppercase tracking-tighter">
+              {getRoleName(playerSecret?.fakeCharacter || playerSecret?.character)}
+            </p>
+         </div>
+
+         <div className="space-y-2">
+            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1">Information Log</p>
+            <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
+               {playerSecret?.messageHistory && playerSecret.messageHistory.length > 0 ? (
+                  playerSecret.messageHistory.map((msg, i) => (
+                    <div key={i} className="p-2.5 bg-slate-900/50 rounded-lg border border-slate-800/50 text-[11px] text-slate-400 italic leading-snug">
+                       <span className="text-[8px] font-black text-sky-500/50 mr-2 uppercase">Entry {i + 1}</span>
+                       "{msg}"
+                    </div>
+                  ))
+               ) : (
+                  <p className="text-[10px] text-slate-600 italic py-2 text-center">No information received yet.</p>
+               )}
+            </div>
+         </div>
+      </div>
+    )}
+  </div>
+)}
 
       {/* Slayer Special Action */}
       {!isST && playerSecret?.character === 'slayer' && !roomState.players[user.uid]?.isDead && (

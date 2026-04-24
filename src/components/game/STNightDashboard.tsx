@@ -60,10 +60,21 @@ export function STNightDashboard() {
     try {
       const { newPublicState, newSecretState } = resolveNightActions(roomState, secretState);
       
-      newSecretState.nightResults = {
+      const finalNightResults = {
         ...(newSecretState.nightResults || {}),
         ...(tempSecretState.nightResults || {})
       };
+
+      newSecretState.nightResults = finalNightResults;
+
+      // Persist to history
+      Object.keys(newSecretState.players).forEach(uid => {
+        const msg = finalNightResults[uid]?.message;
+        if (msg) {
+          const history = newSecretState.players[uid].messageHistory || [];
+          newSecretState.players[uid].messageHistory = [...history, msg];
+        }
+      });
 
       newPublicState.status = 'day';
       await updateSecretState(newSecretState);

@@ -43,8 +43,9 @@ export interface SecretPlayer {
   isDrunk: boolean;
   isPoisoned: boolean;
   bluffs: RoleType[]; 
-  isUsed?: boolean; // For once-per-game abilities like Virgin
-  isRedHerring?: boolean; // For Fortune Teller
+  messageHistory?: string[]; // Log of all received messages
+  isUsed?: boolean; 
+  isRedHerring?: boolean; 
 }
 
 export interface NightAction {
