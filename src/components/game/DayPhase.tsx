@@ -36,7 +36,18 @@ export function DayPhase({ isST }: { isST: boolean }) {
 
   const handleSlayerAbility = async (targetUid: string) => {
     if (isST) return;
-    alert(`${roomState.players[targetUid].name}님에게 학살자 능력을 사용하시겠습니까? (ST에게 알림이 전송됩니다)`);
+    const targetName = roomState.players[targetUid].name;
+    if (window.confirm(`${targetName}님에게 학살자 능력을 사용하시겠습니까? (이 행동은 모두에게 공개됩니다)`)) {
+       const updates: Record<string, any> = {};
+       const eventId = Date.now().toString();
+       updates[`public/rooms/${roomId}/events/${eventId}`] = {
+          type: 'slayer_shot',
+          actorName: roomState.players[user.uid].name,
+          targetName: targetName,
+          timestamp: Date.now()
+       };
+       await update(ref(database), updates);
+    }
   };
 
   const handleVote = async (vote: boolean) => {
@@ -53,11 +64,12 @@ export function DayPhase({ isST }: { isST: boolean }) {
     if (!isST || !currentNominationKey) return;
     
     if (execute) {
-      const updates: Record<string, boolean | string | null> = {};
+      const updates: Record<string, any> = {};
       updates[`public/rooms/${roomId}/players/${currentNominationKey}/isDead`] = true;
       updates[`public/rooms/${roomId}/players/${currentNominationKey}/hasGhostVote`] = true;
       updates[`public/rooms/${roomId}/status`] = 'night';
       updates[`public/rooms/${roomId}/nominations`] = null;
+      updates[`public/rooms/${roomId}/lastExecutedUid`] = currentNominationKey;
       await update(ref(database), updates);
     } else {
       await updatePublicState({ status: 'day', nominations: null });
@@ -79,8 +91,20 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const aliveCount = players.filter(p => !p.isDead).length;
   const majorityNeeded = Math.ceil(aliveCount / 2);
 
+  // Monitor Slayer Events for ST
+  const events = (roomState as any).events || {};
+  const lastEventId = Object.keys(events).sort().pop();
+  const lastEvent = lastEventId ? events[lastEventId] : null;
+
   return (
-    <div className="flex flex-col gap-4 w-full max-w-lg animate-fade-in">
+    <div className="flex flex-col gap-4 w-full max-w-lg animate-fade-in pb-10">
+      {isST && lastEvent && lastEvent.type === 'slayer_shot' && (Date.now() - lastEvent.timestamp < 10000) && (
+        <div className="bg-rose-600 text-white p-4 rounded-xl shadow-2xl animate-bounce text-center font-bold">
+           📢 학살자 능력 발동! <br/>
+           {lastEvent.actorName} {'->'} {lastEvent.targetName}
+        </div>
+      )}
+
       <div className="bg-slate-900/80 p-5 rounded-xl border border-slate-800/80 backdrop-blur flex justify-between items-center shadow-sm">
         <div>
           <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-2">

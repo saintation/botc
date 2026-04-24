@@ -2,52 +2,87 @@ import type { PublicRoomState, SecretRoomState } from '../types/game';
 import type { RoleType } from '../types/character';
 
 const isDemon = (character: RoleType | null) => character === 'imp';
+const isEvil = (alignment: string | null) => alignment === 'evil';
 
 export function getNightSuggestions(publicState: PublicRoomState, secretState: SecretRoomState) {
   const suggestions: Record<string, { message: string }> = {};
-  const { players } = secretState;
-  const { players: pubPlayers, dayNumber } = publicState;
+  const { players: secretPlayers } = secretState;
+  const { players: pubPlayers, dayNumber, lastExecutedUid } = publicState;
+  
+  const orderedPubPlayers = Object.values(pubPlayers).sort((a, b) => a.seatIndex - b.seatIndex);
 
+  // Night 1 Special Setup
   if (dayNumber === 1) {
-    Object.entries(players).forEach(([uid, player]) => {
+    Object.entries(secretPlayers).forEach(([uid, player]) => {
       if (player.character === 'washerwoman') {
-         const townsfolk = Object.entries(players).filter(([pUid, p]) => p.alignment === 'good' && pUid !== uid && p.character !== 'drunk');
+         const townsfolk = Object.entries(secretPlayers).filter(([_, p]) => p.alignment === 'good' && _ !== uid && p.character !== 'drunk' && p.character !== 'washerwoman');
          if (townsfolk.length > 0) {
             const target = townsfolk[Math.floor(Math.random() * townsfolk.length)];
-            const decoy = Object.entries(players).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
+            const decoy = Object.entries(secretPlayers).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
             suggestions[uid] = { message: `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${target[1].character}입니다.` };
          }
       }
       if (player.character === 'librarian') {
-         const outsiders = Object.entries(players).filter(([_, p]) => p.alignment === 'good' && p.character !== 'drunk' && (p.character === 'butler' || p.character === 'saint' || p.character === 'recluse'));
+         const outsiders = Object.entries(secretPlayers).filter(([_, p]) => p.alignment === 'good' && p.character !== 'drunk' && (p.character === 'butler' || p.character === 'saint' || p.character === 'recluse'));
          if (outsiders.length > 0) {
             const target = outsiders[Math.floor(Math.random() * outsiders.length)];
-            const decoy = Object.entries(players).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
+            const decoy = Object.entries(secretPlayers).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
             suggestions[uid] = { message: `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${target[1].character}입니다.` };
          } else {
             suggestions[uid] = { message: "이 게임에 외부인은 없습니다." };
          }
       }
       if (player.character === 'investigator') {
-         const minions = Object.entries(players).filter(([_, p]) => p.alignment === 'evil' && p.character !== 'imp');
+         const minions = Object.entries(secretPlayers).filter(([_, p]) => p.alignment === 'evil' && p.character !== 'imp');
          if (minions.length > 0) {
             const target = minions[Math.floor(Math.random() * minions.length)];
-            const decoy = Object.entries(players).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
+            const decoy = Object.entries(secretPlayers).filter(([pUid]) => pUid !== uid && pUid !== target[0])[0];
             suggestions[uid] = { message: `${pubPlayers[target[0]]?.name} 또는 ${pubPlayers[decoy[0]]?.name} 중 한 명은 ${target[1].character}입니다.` };
          }
+      }
+      if (player.character === 'chef') {
+         let evilPairs = 0;
+         for (let i = 0; i < orderedPubPlayers.length; i++) {
+            const current = orderedPubPlayers[i];
+            const next = orderedPubPlayers[(i + 1) % orderedPubPlayers.length];
+            if (isEvil(secretPlayers[current.uid]?.alignment) && isEvil(secretPlayers[next.uid]?.alignment)) {
+               evilPairs++;
+            }
+         }
+         suggestions[uid] = { message: `악의 진영 이웃 쌍의 수: ${evilPairs}` };
       }
     });
   }
 
+  // Every Night Actions
+  Object.entries(secretPlayers).forEach(([uid, player]) => {
+    if (player.character === 'empath' && !pubPlayers[uid]?.isDead) {
+       const alivePlayers = orderedPubPlayers.filter(p => !p.isDead || p.uid === uid);
+       const myAliveIndex = alivePlayers.findIndex(p => p.uid === uid);
+       if (myAliveIndex !== -1) {
+          const prev = alivePlayers[(myAliveIndex - 1 + alivePlayers.length) % alivePlayers.length];
+          const next = alivePlayers[(myAliveIndex + 1) % alivePlayers.length];
+          let evilCount = 0;
+          if (isEvil(secretPlayers[prev.uid]?.alignment)) evilCount++;
+          if (isEvil(secretPlayers[next.uid]?.alignment)) evilCount++;
+          suggestions[uid] = { message: `당신의 양옆에 있는 악마 기운: ${evilCount}` };
+       }
+    }
+    if (player.character === 'undertaker' && !pubPlayers[uid]?.isDead && lastExecutedUid) {
+       const executedRole = secretPlayers[lastExecutedUid]?.character;
+       suggestions[uid] = { message: `오늘 처형된 자의 정체: ${executedRole}` };
+    }
+  });
+
   Object.entries(secretState.nightActions || {}).forEach(([uid, action]) => {
-    const player = players[uid];
+    const player = secretPlayers[uid];
     if (player?.character === 'butler' && action.targetUid) {
        suggestions[uid] = { message: `당신이 선택한 주인: ${pubPlayers[action.targetUid]?.name}` };
     }
     if (player?.character === 'fortune_teller' && action.targetUid && action.target2Uid) {
        const isMisinformed = player.isPoisoned || player.isDrunk;
-       const t1Demon = isDemon(players[action.targetUid]?.character);
-       const t2Demon = isDemon(players[action.target2Uid]?.character);
+       const t1Demon = isDemon(secretPlayers[action.targetUid]?.character);
+       const t2Demon = isDemon(secretPlayers[action.target2Uid]?.character);
        const realAnswer = t1Demon || t2Demon;
        const finalAnswer = isMisinformed ? (Math.random() > 0.5) : realAnswer;
        suggestions[uid] = { message: finalAnswer ? 'Yes' : 'No' };

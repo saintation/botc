@@ -23,6 +23,7 @@ export interface PublicRoomState {
   players: Record<string, PublicPlayer>;
   dayNumber: number;
   nominations: Record<string, Nomination> | null; // 현재 지목 상태
+  lastExecutedUid?: string | null; // 어제 처형된 사람
 }
 
 export interface SecretPlayer {
