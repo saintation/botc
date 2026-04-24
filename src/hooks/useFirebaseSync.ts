@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ref, onValue, update, set } from 'firebase/database';
 import { database } from '../lib/firebase';
 import { useGameStore } from '../store/gameStore';
@@ -8,6 +8,7 @@ import type { PublicRoomState, SecretRoomState, SecretPlayer, NightAction, Night
 export function useGameData(roomId: string | null) {
   const setRoomState = useGameStore((state) => state.setRoomState);
   const [error, setError] = useState<Error | null>(null);
+  const lastDataRef = useRef<string>("");
 
   useEffect(() => {
     if (!roomId) return;
@@ -18,7 +19,11 @@ export function useGameData(roomId: string | null) {
       (snapshot) => {
         const data = snapshot.val() as PublicRoomState;
         if (data) {
-          setRoomState(data);
+          const stringified = JSON.stringify(data);
+          if (stringified !== lastDataRef.current) {
+            lastDataRef.current = stringified;
+            setRoomState(data);
+          }
         }
       },
       (err) => {
@@ -53,9 +58,14 @@ export function useGameData(roomId: string | null) {
 export function useSecretData(roomId: string | null, isST: boolean) {
   const [secretState, setSecretState] = useState<SecretRoomState | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const lastDataRef = useRef<string>("");
 
   useEffect(() => {
-    if (!roomId || !isST) return;
+    if (!roomId || !isST) {
+      setSecretState(null);
+      lastDataRef.current = "";
+      return;
+    }
 
     const secretRef = ref(database, `secret/rooms/${roomId}`);
     const unsubscribe = onValue(
@@ -63,7 +73,11 @@ export function useSecretData(roomId: string | null, isST: boolean) {
       (snapshot) => {
         const data = snapshot.val() as SecretRoomState;
         if (data) {
-          setSecretState(data);
+          const stringified = JSON.stringify(data);
+          if (stringified !== lastDataRef.current) {
+            lastDataRef.current = stringified;
+            setSecretState(data);
+          }
         }
       },
       (err) => {
@@ -88,6 +102,9 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
   const [playerSecret, setPlayerSecret] = useState<SecretPlayer | null>(null);
   const [nightResult, setNightResult] = useState<NightResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  
+  const lastPlayerRef = useRef<string>("");
+  const lastResultRef = useRef<string>("");
 
   useEffect(() => {
     if (!roomId || !uid) return;
@@ -96,7 +113,12 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
     const unsubscribePlayer = onValue(
       playerRef,
       (snapshot) => {
-        setPlayerSecret(snapshot.val() as SecretPlayer);
+        const data = snapshot.val() as SecretPlayer;
+        const stringified = JSON.stringify(data);
+        if (stringified !== lastPlayerRef.current) {
+          lastPlayerRef.current = stringified;
+          setPlayerSecret(data);
+        }
       },
       (err) => setError(err)
     );
@@ -105,8 +127,12 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
     const unsubscribeResult = onValue(
       resultRef,
       (snapshot) => {
-        const val = snapshot.val();
-        setNightResult(val ? (val as NightResult) : null);
+        const data = snapshot.val() as NightResult;
+        const stringified = JSON.stringify(data);
+        if (stringified !== lastResultRef.current) {
+          lastResultRef.current = stringified;
+          setNightResult(data);
+        }
       },
       (err) => setError(err)
     );
@@ -125,3 +151,4 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
 
   return { playerSecret, nightResult, error, submitNightAction };
 }
+

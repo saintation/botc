@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, memo } from 'react';
 import { cn } from '../../lib/utils/cn';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -7,7 +7,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   isLoading?: boolean;
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+export const Button = memo(forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
     return (
       <button
@@ -39,6 +39,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       </button>
     );
   }
-);
+));
 
 Button.displayName = 'Button';

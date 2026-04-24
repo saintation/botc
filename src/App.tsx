@@ -1,13 +1,23 @@
+import { lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { STLobby } from './components/game/STLobby'
 import { PlayerLobby } from './components/game/PlayerLobby'
-import { DayPhase } from './components/game/DayPhase'
-import { NightPhase } from './components/game/NightPhase'
 import { TownSquare } from './components/game/TownSquare'
 import { useGameStore } from './store/gameStore'
 import { useGameData } from './hooks/useFirebaseSync'
 import { Button } from './components/ui/Button'
 import { cn } from './lib/utils/cn'
+
+// Lazy load large components
+const DayPhase = lazy(() => import('./components/game/DayPhase').then(m => ({ default: m.DayPhase })));
+const NightPhase = lazy(() => import('./components/game/NightPhase').then(m => ({ default: m.NightPhase })));
+
+const LoadingSpinner = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
+    <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+    <p className="text-sky-400 font-medium tracking-wide animate-pulse uppercase tracking-widest text-[10px]">Loading Phase...</p>
+  </div>
+);
 
 function App() {
   const { user, loading, error: authError } = useAuth()
@@ -89,8 +99,10 @@ function App() {
             {user && role === 'st' && (!roomState?.status || roomState?.status === 'lobby' || roomState?.status === 'setup') && <STLobby />}
             {user && role === 'player' && roomState && (roomState?.status === 'lobby' || roomState?.status === 'setup') && <PlayerLobby />}
             
-            {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}
-            {user && role && isNightPhase && <NightPhase isST={role === 'st'} />}
+            <Suspense fallback={<LoadingSpinner />}>
+              {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}
+              {user && role && isNightPhase && <NightPhase isST={role === 'st'} />}
+            </Suspense>
 
             {/* Victory Screen */}
             {roomState?.status === 'end' && (
