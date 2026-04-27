@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { STLobby } from './components/game/STLobby'
 import { PlayerLobby } from './components/game/PlayerLobby'
-import { TownSquare } from './components/game/TownSquare'
 import { useGameStore } from './store/gameStore'
 import { useGameData } from './hooks/useFirebaseSync'
 import { Button } from './components/ui/Button'
@@ -44,9 +43,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center">
-      {/* Persistent Town Square once game starts */}
-      {gameStarted && <TownSquare />}
-
       <div className="flex-1 w-full flex items-center justify-center p-4 sm:p-8 animate-fade-in max-w-lg mx-auto">
         <div className="bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-2xl w-full flex flex-col items-center border border-slate-800/80 backdrop-blur-sm relative overflow-hidden">
           {!gameStarted && (

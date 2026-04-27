@@ -4,22 +4,16 @@ import { database } from '../../lib/firebase';
 import { ref, update } from 'firebase/database';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
-import { useState } from 'react';
-import { handleDemonDeath, checkWinCondition } from '../../lib/gameLogic';
-import { ConfidentialArchive } from './shared/ConfidentialArchive';
+import { checkWinCondition } from '../../lib/gameLogic';
+import { TownSquare } from './TownSquare';
+import { PlayerIdentity } from './shared/PlayerIdentity';
+import { PlayerRecords } from './shared/PlayerRecords';
 
 export function DayPhase({ isST }: { isST: boolean }) {
   const { user } = useAuth();
-  const { roomId, roomState, setShowSpyIntel } = useGameStore();
+  const { roomId, roomState } = useGameStore();
   const { playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
   const { secretState } = useSecretData(roomId, isST);
-
-  const [showPlayerLogLocal, setShowPlayerLogLocal] = useState(false);
-
-  const setShowPlayerLog = (val: boolean) => {
-    setShowPlayerLogLocal(val);
-    setShowSpyIntel(val);
-  };
 
   if (!roomState || !user || !roomId) return null;
 
@@ -109,7 +103,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
           pubClone.status = 'end';
           pubClone.winner = 'evil';
        } else {
-          if (targetSecret?.character === 'imp') handleDemonDeath(pubClone, secClone);
           const winner = checkWinCondition(pubClone, secClone);
           if (winner) {
              pubClone.status = 'end';
@@ -180,10 +173,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
           pubClone.players[targetUid].isDead = true;
           pubClone.players[targetUid].hasGhostVote = true;
           
-          if (secClone.players[targetUid]?.character === 'imp') {
-             handleDemonDeath(pubClone, secClone);
-          }
-
           const winner = checkWinCondition(pubClone, secClone);
           if (winner) {
              pubClone.status = 'end';
@@ -203,7 +192,19 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const lastEvent = lastEventId ? events[lastEventId] : null;
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-4 sm:px-0">
+    <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-0 sm:px-0">
+      
+      {!isST && (
+        <PlayerIdentity 
+          character={playerSecret?.character || null}
+          fakeCharacter={playerSecret?.fakeCharacter}
+          alignment={playerSecret?.alignment || null}
+          evilTeamInfo={playerSecret?.evilTeamInfo}
+        />
+      )}
+
+      <TownSquare />
+
       {isST && lastEvent && lastEvent.type === 'slayer_shot' && (Date.now() - lastEvent.timestamp < 60000) && (
         <div className="bg-rose-600 text-white p-8 rounded-[2.5rem] shadow-2xl animate-bounce text-center space-y-4">
            <div><p className="text-[10px] font-black uppercase opacity-80 mb-2 tracking-widest">Slayer Shot Alert</p><p className="text-2xl font-black">{lastEvent.actorName} {'->'} {lastEvent.targetName}</p></div>
@@ -214,7 +215,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-slate-800 backdrop-blur flex justify-between items-center shadow-lg">
+      <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-slate-800 backdrop-blur flex justify-between items-center shadow-lg mx-4 sm:mx-0">
         <h2 className="text-3xl font-black text-slate-100 uppercase tracking-tighter font-serif">{roomState.dayNumber}일차 낮</h2>
         {roomState.executionTargetUid && (
           <div className="text-right">
@@ -225,7 +226,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
       </div>
 
       {isVoting && currentNomination && (
-        <div className="bg-slate-950 p-8 rounded-[2.5rem] border border-sky-500/30 text-center relative overflow-hidden shadow-2xl animate-fade-in">
+        <div className="bg-slate-950 p-8 rounded-[2.5rem] border border-sky-500/30 text-center relative overflow-hidden shadow-2xl animate-fade-in mx-4 sm:mx-0">
           <h3 className="text-sky-400 font-black uppercase text-sm tracking-[0.3em] mb-6">Vote Active</h3>
           <p className="text-slate-300 mb-8 leading-tight">
              <span className="text-slate-500 text-[11px] uppercase font-bold mb-2 block tracking-widest">Nominator: {roomState.players[currentNomination.nominatorUid]?.name}</span>
@@ -261,22 +262,9 @@ export function DayPhase({ isST }: { isST: boolean }) {
         </div>
       )}
 
-      {/* Identity & Intel Log (Reusable Component) */}
-      {!isST && (
-        <ConfidentialArchive 
-          isOpen={showPlayerLogLocal}
-          onToggle={() => setShowPlayerLog(!showPlayerLogLocal)}
-          character={playerSecret?.character || null}
-          fakeCharacter={playerSecret?.fakeCharacter}
-          alignment={playerSecret?.alignment || null}
-          evilTeamInfo={playerSecret?.evilTeamInfo}
-          messageHistory={playerSecret?.messageHistory}
-        />
-      )}
-
       {/* Slayer Shot */}
       {!isST && playerSecret?.character === 'slayer' && !roomState.players[user.uid]?.isDead && (
-         <div className="bg-rose-950/30 p-8 rounded-[3rem] border border-rose-500/30 text-center shadow-2xl mt-4 space-y-6 relative overflow-hidden">
+         <div className="bg-rose-950/30 p-8 rounded-[3rem] border border-rose-500/30 text-center shadow-2xl mt-4 space-y-6 relative overflow-hidden mx-4 sm:mx-0">
             <div className="absolute top-0 left-0 w-full h-1 bg-rose-500/20 animate-pulse"></div>
             <p className="text-sm text-rose-500 font-black uppercase tracking-[0.4em] mb-2">Execute Slayer's Shot</p>
             <div className="grid grid-cols-1 gap-2">
@@ -288,7 +276,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
       )}
 
       {/* Nomination History */}
-      <div className="bg-slate-900/60 p-6 rounded-[2.5rem] border border-slate-800 backdrop-blur shadow-xl mt-4">
+      <div className="bg-slate-900/60 p-6 rounded-[2.5rem] border border-slate-800 backdrop-blur shadow-xl mt-4 mx-4 sm:mx-0">
          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 border-b border-slate-800 pb-3">Daily Nomination Log</h3>
          <div className="space-y-4">
             {roomState.nominationHistory && roomState.nominationHistory.length > 0 ? (
@@ -328,6 +316,12 @@ export function DayPhase({ isST }: { isST: boolean }) {
             </Button>
          )}
       </div>
+
+      {!isST && (
+        <PlayerRecords 
+          messageHistory={playerSecret?.messageHistory}
+        />
+      )}
     </div>
   );
 }

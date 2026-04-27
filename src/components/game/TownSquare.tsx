@@ -237,8 +237,8 @@ export function TownSquare() {
   };
 
   return (
-    <div className="w-full bg-slate-950 border-b border-slate-800 p-8 flex flex-col items-center select-none">
-      <div className="mb-12 flex items-center justify-between w-full max-w-sm px-4">
+    <div className="w-full flex flex-col items-center select-none py-2 sm:py-6">
+      <div className="mb-8 flex items-center justify-between w-full max-w-sm px-4">
         <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.4em] font-serif">Town Square</h3>
         <div className="flex gap-3 items-center">
            <span className="text-xs text-sky-500 font-mono bg-sky-500/10 px-3 py-1 rounded border border-sky-500/20 uppercase font-black tracking-widest">

@@ -9,6 +9,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '../../lib/utils/cn';
 import { handleDemonDeath, checkWinCondition } from '../../lib/gameLogic';
 
+import { TownSquare } from './TownSquare';
+
 export function STNightDashboard() {
   const roomId = useGameStore(state => state.roomId);
   const roomState = useGameStore(state => state.roomState);
@@ -109,7 +111,9 @@ export function STNightDashboard() {
   const actions = secretState.nightActions || {};
 
   return (
-    <div className="w-full space-y-12 animate-fade-in pb-24">
+    <div className="w-full space-y-12 animate-fade-in pb-24 px-0 sm:px-0">
+      <TownSquare />
+      
       {/* 1. 행동 모니터링 Section */}
       <section className="bg-slate-900/90 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl pointer-events-none"></div>
