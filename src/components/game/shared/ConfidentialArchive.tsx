@@ -72,7 +72,7 @@ export const ConfidentialArchive = memo(({
                       <span className="block text-[10px] text-slate-500 font-black uppercase mb-1">하수인(Minions)</span>
                       <span className="text-base text-white font-bold leading-tight uppercase tracking-tight">{evilTeamInfo.minionNames.join(', ')}</span>
                     </div>
-                    {evilTeamInfo.bluffs.length > 0 && (
+                    {evilTeamInfo.bluffs.length > 0 && character === 'imp' && (
                        <div className="pt-4 border-t border-rose-500/10">
                           <span className="block text-[10px] text-slate-500 font-black uppercase mb-3 tracking-widest">악마 블러프</span>
                           <div className="flex flex-wrap gap-2 justify-center">
