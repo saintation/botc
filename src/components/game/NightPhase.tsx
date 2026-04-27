@@ -41,6 +41,9 @@ export function NightPhase({ isST }: { isST: boolean }) {
   const needsTwoTargets = ['fortune_teller'].includes(myRole || '');
   const isButler = myRole === 'butler';
 
+  const evilNames = playerSecret?.evilTeamInfo ? [playerSecret.evilTeamInfo.demonName, ...playerSecret.evilTeamInfo.minionNames] : [];
+  const selectablePlayers = players.filter(p => p.uid !== user.uid && !(myRole === 'poisoner' && evilNames.includes(p.name)));
+
   return (
     <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-4 sm:px-0">
       <div className="bg-slate-900/90 p-8 rounded-[3rem] border border-slate-800 backdrop-blur shadow-2xl text-center space-y-8 relative overflow-hidden">
@@ -67,7 +70,7 @@ export function NightPhase({ isST }: { isST: boolean }) {
                  <div className="space-y-6">
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{isButler ? '주인을 선택하세요' : '능력을 사용할 대상을 선택하세요'}</p>
                     <div className="grid grid-cols-2 gap-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
-                       {players.filter(p => p.uid !== user.uid).map(p => (
+                       {selectablePlayers.map(p => (
                           <button
                             key={p.uid}
                             onClick={() => {

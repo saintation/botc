@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { getRoleName } from '../../../constants/roles';
+import { getRoleName, getRoleDescription } from '../../../constants/roles';
 import type { RoleType } from '../../../types/character';
 
 interface ConfidentialArchiveProps {
@@ -26,6 +26,7 @@ export const ConfidentialArchive = memo(({
   messageHistory
 }: ConfidentialArchiveProps) => {
   const currentRoleName = getRoleName(fakeCharacter || character);
+  const currentRoleDesc = getRoleDescription(fakeCharacter || character);
 
   return (
     <div className="bg-slate-900/80 rounded-[2.5rem] border border-slate-800 backdrop-blur shadow-2xl overflow-hidden mt-4 transition-all duration-300">
@@ -55,9 +56,10 @@ export const ConfidentialArchive = memo(({
           id="confidential-archive-content"
           className="p-8 pt-0 space-y-8 animate-fade-in border-t border-slate-800/50 mt-2 bg-slate-950/40"
         >
-           <div className="py-6 px-8 bg-slate-950/80 rounded-[1.5rem] border border-slate-800 shadow-inner mt-6 text-center">
+           <div className="py-6 px-8 bg-slate-950/80 rounded-[1.5rem] border border-slate-800 shadow-inner mt-6 text-center space-y-3">
               <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">현재 나의 정체</p>
               <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-100 to-sky-400 uppercase tracking-tighter italic">{currentRoleName}</p>
+              <p className="text-xs text-slate-400 font-medium leading-relaxed break-keep-all">{currentRoleDesc}</p>
            </div>
 
            {alignment === 'evil' && evilTeamInfo && (
