@@ -1,7 +1,6 @@
 import type { PublicRoomState, SecretRoomState } from '../types/game';
 import type { RoleType } from '../types/character';
 import { getRoleName } from '../constants/roles';
-import { handleDemonDeath, checkWinCondition } from './gameLogic';
 
 const isDemon = (character: RoleType | null) => character === 'imp';
 const isEvil = (alignment: string | null) => alignment === 'evil';
@@ -165,16 +164,7 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
-  const impEntry = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp');
-  if (impEntry && newPublicState.players[impEntry[0]]?.isDead) {
-     handleDemonDeath(newPublicState, newSecretState);
-  }
-
-  const winner = checkWinCondition(newPublicState, newSecretState);
-  if (winner) {
-    newPublicState.status = 'end';
-    newPublicState.winner = winner;
-  }
+  // 3. 악마 계승 및 승리 조건 체크는 STNightDashboard.tsx에서 ST가 사망자를 확정한 후에 수행하도록 위임합니다.
 
   const suggestions = getNightSuggestions(publicState, secretState);
   newSecretState.nightResults = { ...(newSecretState.nightResults || {}), ...suggestions };

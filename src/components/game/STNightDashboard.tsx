@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { getRoleName } from '../../constants/roles';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '../../lib/utils/cn';
+import { handleDemonDeath, checkWinCondition } from '../../lib/gameLogic';
 
 export function STNightDashboard() {
   const roomId = useGameStore(state => state.roomId);
@@ -76,7 +77,19 @@ export function STNightDashboard() {
        }
     });
 
-    newPublicState.status = 'day';
+    const impEntry = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp');
+    if (impEntry && newPublicState.players[impEntry[0]]?.isDead) {
+       handleDemonDeath(newPublicState, newSecretState);
+    }
+
+    const winner = checkWinCondition(newPublicState, newSecretState);
+    if (winner) {
+       newPublicState.status = 'end';
+       newPublicState.winner = winner;
+    } else {
+       newPublicState.status = 'day';
+    }
+
     newSecretState.nightResults = {};
     newSecretState.nightActions = {};
 

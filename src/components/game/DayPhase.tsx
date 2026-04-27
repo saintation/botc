@@ -179,17 +179,19 @@ export function DayPhase({ isST }: { isST: boolean }) {
           const secClone = JSON.parse(JSON.stringify(secretState));
           pubClone.players[targetUid].isDead = true;
           pubClone.players[targetUid].hasGhostVote = true;
+          
           if (secClone.players[targetUid]?.character === 'imp') {
-             if (handleDemonDeath(pubClone, secClone)) {
-                updates[`secret/rooms/${roomId}`] = secClone;
-                updates[`public/rooms/${roomId}/players`] = pubClone.players;
-             } else {
-                updates[`public/rooms/${roomId}/status`] = 'end';
-                updates[`public/rooms/${roomId}/winner`] = 'good';
-             }
-          } else {
-             updates[`public/rooms/${roomId}/players/${targetUid}`] = pubClone.players[targetUid];
+             handleDemonDeath(pubClone, secClone);
           }
+
+          const winner = checkWinCondition(pubClone, secClone);
+          if (winner) {
+             pubClone.status = 'end';
+             pubClone.winner = winner;
+          }
+          
+          updates[`public/rooms/${roomId}`] = pubClone;
+          updates[`secret/rooms/${roomId}`] = secClone;
        }
     }
     updates[`public/rooms/${roomId}/events/${lastEventId}`] = null;

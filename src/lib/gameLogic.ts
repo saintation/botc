@@ -5,10 +5,13 @@ import type { PublicRoomState, SecretRoomState } from '../types/game';
  * @returns 계승 성공 여부
  */
 export function handleDemonDeath(pub: PublicRoomState, sec: SecretRoomState): boolean {
-  const alivePlayers = Object.values(pub.players).filter(p => !p.isDead);
+  // 룰북: '악마가 죽기 직전' 생존자가 5명 이상일 때 홍등가 여인이 계승함
+  // 이미 pub.players[targetUid].isDead = true 처리가 된 상태이므로, 
+  // 방금 죽은 악마를 포함하여 생존자 수를 계산해야 합니다.
+  // 이 함수가 호출되는 시점은 항상 악마가 막 죽은 직후입니다.
+  const alivePlayersCount = Object.values(pub.players).filter(p => !p.isDead).length + 1;
   
-  // 룰북: 생존자가 5명 이상일 때만 홍등가 여인이 계승함
-  if (alivePlayers.length >= 5) {
+  if (alivePlayersCount >= 5) {
     const swEntry = Object.entries(sec.players).find(([uid, p]) => 
       p.character === 'scarlet_woman' && !pub.players[uid]?.isDead
     );

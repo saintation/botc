@@ -6,6 +6,7 @@ import { getRoleName } from '../../constants/roles';
 import { useAuth } from '../../hooks/useAuth';
 import { database } from '../../lib/firebase';
 import { ref, update } from 'firebase/database';
+import { handleDemonDeath, checkWinCondition } from '../../lib/gameLogic';
 
 // Memoized Player Token Component to prevent unnecessary re-renders
 const PlayerToken = memo(({ 
@@ -175,6 +176,44 @@ export function TownSquare() {
       const targetName = clickedPlayer.name;
 
       if (window.confirm(`${nominatorName}님이 ${targetName}님을 지목하시겠습니까?`)) {
+        const targetSecret = secretState?.players[clickedUid];
+        const nominatorSecret = secretState?.players[selectedNominator];
+        
+        if (targetSecret?.character === 'virgin' && !targetSecret.isPoisoned && !targetSecret.isDrunk && !targetSecret.isUsed) {
+           if (nominatorSecret?.alignment === 'good' && !['butler', 'drunk', 'recluse', 'saint'].includes(nominatorSecret.character || '')) {
+              const pubClone = JSON.parse(JSON.stringify(roomState));
+              const secClone = JSON.parse(JSON.stringify(secretState));
+              pubClone.players[selectedNominator].isDead = true;
+              pubClone.players[selectedNominator].hasGhostVote = true;
+              pubClone.lastExecutedUid = selectedNominator;
+              secClone.players[clickedUid].isUsed = true;
+
+              if (secClone.players[selectedNominator]?.character === 'imp') {
+                 handleDemonDeath(pubClone, secClone);
+              }
+
+              const winner = checkWinCondition(pubClone, secClone);
+              if (winner) {
+                 pubClone.status = 'end';
+                 pubClone.winner = winner;
+              } else {
+                 pubClone.status = 'night';
+                 pubClone.dayNumber += 1;
+                 pubClone.usedNominators = [];
+                 pubClone.usedTargets = [];
+                 pubClone.nominationHistory = [];
+              }
+
+              const updates: Record<string, any> = {};
+              updates[`public/rooms/${roomId}`] = pubClone;
+              updates[`secret/rooms/${roomId}/players`] = secClone.players;
+              alert(`처녀(Virgin) 능력이 발동되었습니다! 지목자 ${roomState.players[selectedNominator].name}님이 즉시 처형됩니다.`);
+              await update(ref(database), updates);
+              setSelectedNominator(null);
+              return;
+           }
+        }
+
         const newNomination = { 
           targetUid: clickedUid, 
           nominatorUid: selectedNominator, 
