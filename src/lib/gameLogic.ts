@@ -4,24 +4,42 @@ import type { PublicRoomState, SecretRoomState } from '../types/game';
  * 악마가 사망했을 때 홍등가 여인(Scarlet Woman)이 계승할 수 있는지 체크하고 처리합니다.
  * @returns 계승 성공 여부
  */
-export function handleDemonDeath(pub: PublicRoomState, sec: SecretRoomState): boolean {
+export function handleDemonDeath(pub: PublicRoomState, sec: SecretRoomState, isStarpass: boolean = false): boolean {
   // 룰북: '악마가 죽기 직전' 생존자가 5명 이상일 때 홍등가 여인이 계승함
   // 이미 pub.players[targetUid].isDead = true 처리가 된 상태이므로, 
   // 방금 죽은 악마를 포함하여 생존자 수를 계산해야 합니다.
   // 이 함수가 호출되는 시점은 항상 악마가 막 죽은 직후입니다.
   const alivePlayersCount = Object.values(pub.players).filter(p => !p.isDead).length + 1;
   
-  if (alivePlayersCount >= 5) {
-    const swEntry = Object.entries(sec.players).find(([uid, p]) => 
-      p.character === 'scarlet_woman' && !pub.players[uid]?.isDead
+  if (isStarpass) {
+    // 스타패스: 생존자 수나 홍등가 여부와 상관없이 살아있는 하수인 중 한 명이 임프가 됨
+    const aliveMinions = Object.entries(sec.players).filter(([uid, p]) => 
+      ['poisoner', 'spy', 'scarlet_woman', 'baron'].includes(p.character || '') && !pub.players[uid]?.isDead
     );
 
-    if (swEntry) {
-      const swUid = swEntry[0];
-      sec.players[swUid].character = 'imp';
+    if (aliveMinions.length > 0) {
+      // 홍등가 여인이 살아있다면 우선 계승, 아니면 무작위(첫번째) 하수인
+      const sw = aliveMinions.find(([_, p]) => p.character === 'scarlet_woman');
+      const successorUid = sw ? sw[0] : aliveMinions[0][0];
+      
+      sec.players[successorUid].character = 'imp';
       return true; // 계승 성공
     }
+  } else {
+    // 일반 사망: 5인 이상일 때 홍등가 여인만 계승 가능
+    if (alivePlayersCount >= 5) {
+      const swEntry = Object.entries(sec.players).find(([uid, p]) => 
+        p.character === 'scarlet_woman' && !pub.players[uid]?.isDead
+      );
+
+      if (swEntry) {
+        const swUid = swEntry[0];
+        sec.players[swUid].character = 'imp';
+        return true; // 계승 성공
+      }
+    }
   }
+  
   return false; // 계승 실패 (게임 종료 대상)
 }
 

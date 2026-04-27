@@ -101,7 +101,10 @@ export function STNightDashboard() {
 
     const impEntry = Object.entries(newSecretState.players).find(([_, p]) => p.character === 'imp');
     if (impEntry && newPublicState.players[impEntry[0]]?.isDead) {
-       handleDemonDeath(newPublicState, newSecretState);
+       const impUid = impEntry[0];
+       const impAction = secretState.nightActions?.[impUid];
+       const isStarpass = impAction?.targetUid === impUid;
+       handleDemonDeath(newPublicState, newSecretState, isStarpass);
     }
 
     const winner = checkWinCondition(newPublicState, newSecretState);
