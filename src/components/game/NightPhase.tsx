@@ -42,7 +42,21 @@ export function NightPhase({ isST }: { isST: boolean }) {
   const isButler = myRole === 'butler';
 
   const evilNames = playerSecret?.evilTeamInfo ? [playerSecret.evilTeamInfo.demonName, ...playerSecret.evilTeamInfo.minionNames] : [];
-  const selectablePlayers = players.filter(p => p.uid !== user.uid && !(myRole === 'poisoner' && evilNames.includes(p.name)));
+  
+  const selectablePlayers = players.filter(p => {
+    if (myRole === 'imp') {
+      // 임프는 자기 자신(스타패스)을 포함해 산 사람만 선택 가능
+      return !p.isDead;
+    }
+    
+    // 그 외 직업들은 본인 선택 불가
+    if (p.uid === user.uid) return false;
+    
+    // 독술사 팀킬 방지
+    if (myRole === 'poisoner' && evilNames.includes(p.name)) return false;
+    
+    return true;
+  });
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-lg animate-fade-in pb-20 px-4 sm:px-0">
