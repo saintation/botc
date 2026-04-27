@@ -102,9 +102,9 @@ function App() {
 
             {/* Victory Screen */}
             {roomState?.status === 'end' && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-6 animate-fade-in">
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 sm:p-6 animate-fade-in">
                  <div className={cn(
-                   "bg-slate-900 border-2 p-10 rounded-[3rem] shadow-2xl text-center max-w-sm w-full space-y-8 relative overflow-hidden",
+                   "bg-slate-900 border-2 p-8 sm:p-10 rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl text-center max-w-sm w-full space-y-6 sm:space-y-8 relative overflow-hidden",
                    roomState.winner === 'good' ? "border-sky-500/50 shadow-sky-500/20" : "border-rose-600/50 shadow-rose-600/20"
                  )}>
                     <div className={cn(
@@ -114,26 +114,33 @@ function App() {
                     
                     <div className="space-y-2">
                        <h2 className={cn(
-                         "text-5xl font-black uppercase tracking-tighter italic font-serif leading-none",
+                         "text-4xl sm:text-5xl font-black uppercase tracking-tighter italic font-serif leading-none",
                          roomState.winner === 'good' ? "text-sky-400" : "text-rose-600"
                        )}>
-                         {roomState.winner === 'good' ? 'Good Wins' : 'Evil Wins'}
+                         {roomState.winner === 'good' ? '선의 승리' : '악의 승리'}
                        </h2>
-                       <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">게임 종료</p>
+                       <p className="text-slate-500 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em]">게임 종료</p>
                     </div>
 
-                    <div className="py-10 bg-slate-950/50 rounded-[2.5rem] border border-slate-800 shadow-inner px-4">
-                       <p className="text-sm text-slate-300 font-medium leading-relaxed italic">
+                    <div className="py-8 sm:py-10 bg-slate-950/50 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-800 shadow-inner px-4">
+                       <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed italic break-keep-all">
                           {roomState.winner === 'good' 
                             ? "악마가 처단되었습니다. 마을에 다시 평화가 찾아왔습니다." 
                             : "그림자가 마을을 삼켰습니다. 악의 승리입니다."}
                        </p>
                     </div>
 
-                    <Button onClick={resetSession} variant="primary" size="lg" className={cn(
-                      "w-full font-black uppercase tracking-widest h-16 shadow-xl border-transparent",
-                      roomState.winner === 'good' ? "bg-sky-500 text-slate-950 hover:bg-sky-400" : "bg-rose-600 text-white hover:bg-rose-500"
-                    )}>새로운 마도서 시작</Button>
+                    <Button 
+                      onClick={role === 'st' ? handleGlobalReset : resetSession} 
+                      variant="primary" 
+                      size="lg" 
+                      className={cn(
+                        "w-full font-black uppercase tracking-widest h-14 sm:h-16 text-base sm:text-lg shadow-xl border-transparent",
+                        roomState.winner === 'good' ? "bg-sky-500 text-slate-950 hover:bg-sky-400" : "bg-rose-600 text-white hover:bg-rose-500"
+                      )}
+                    >
+                      {role === 'st' ? '방 전체 초기화' : '로비로 돌아가기'}
+                    </Button>
                  </div>
               </div>
             )}
