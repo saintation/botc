@@ -36,7 +36,8 @@ export function NightPhase({ isST }: { isST: boolean }) {
   if (isST) return <STNightDashboard />;
 
   const players = Object.values(roomState.players).sort((a, b) => a.seatIndex - b.seatIndex);
-  const needsTarget = ['imp', 'poisoner', 'monk', 'ravenkeeper'].includes(myRole || '');
+  const isNight1 = roomState.dayNumber === 1;
+  const needsTarget = ['poisoner', 'monk', 'ravenkeeper'].includes(myRole || '') || (myRole === 'imp' && !isNight1);
   const needsTwoTargets = ['fortune_teller'].includes(myRole || '');
   const isButler = myRole === 'butler';
 

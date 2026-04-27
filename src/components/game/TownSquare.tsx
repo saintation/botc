@@ -1,6 +1,6 @@
 import { useState, useMemo, memo } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { useSecretData } from '../../hooks/useFirebaseSync';
+import { useSecretData, usePlayerSecretData } from '../../hooks/useFirebaseSync';
 import { cn } from '../../lib/utils/cn';
 import { getRoleName } from '../../constants/roles';
 import { useAuth } from '../../hooks/useAuth';
@@ -118,7 +118,17 @@ export function TownSquare() {
   const role = useGameStore(state => state.role);
   const showSpyIntel = useGameStore(state => state.showSpyIntel);
 
-  const { secretState } = useSecretData(roomId, role === 'st' || showSpyIntel);
+  const { playerSecret } = usePlayerSecretData(roomId, user?.uid || null);
+
+  const isSpy = useMemo(() => 
+    role === 'player' && user && playerSecret?.character === 'spy',
+    [role, user, playerSecret?.character]
+  );
+
+  const isNight = roomState?.status === 'night';
+  const showFullInfo = role === 'st' || !!(isSpy && (isNight || showSpyIntel));
+
+  const { secretState } = useSecretData(roomId, showFullInfo);
 
   // ST Selection State
   const [selectedNominator, setSelectedNominator] = useState<string | null>(null);
@@ -130,13 +140,6 @@ export function TownSquare() {
     Object.values(roomState.players).sort((a, b) => a.seatIndex - b.seatIndex),
     [roomState.players]
   );
-
-  const isSpy = useMemo(() => 
-    role === 'player' && user && secretState?.players[user.uid]?.character === 'spy',
-    [role, user, secretState?.players]
-  );
-
-  const showFullInfo = role === 'st' || (isSpy && showSpyIntel);
 
   const isVoting = roomState.status === 'voting';
   const usedNominators = roomState.usedNominators || [];
