@@ -48,7 +48,11 @@ export const PlayerRecords = memo(({
                          <span className="text-[9px] sm:text-[10px] font-black text-indigo-400/60 uppercase tracking-[0.2em]">기록 #{i + 1}</span>
                          <span className="text-[8px] font-bold text-slate-700 font-mono text-xs uppercase">밤 {i + 1}</span>
                       </div>
-                      <p className="pl-1 sm:pl-2">"{msg}"</p>
+                      <div className="pl-1 sm:pl-2 space-y-1">
+                         {msg.split('\n').map((line, j) => (
+                           <p key={j}>{line}</p>
+                         ))}
+                      </div>
                    </div>
                  ))
               ) : (

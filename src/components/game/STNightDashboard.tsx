@@ -61,13 +61,33 @@ export function STNightDashboard() {
     if (!roomState || !secretState || !roomId) return;
     const { newPublicState, newSecretState } = resolveNightActions(roomState, secretState);
     
-    Object.entries(editedSuggestions).forEach(([uid, msg]) => {
-       if (msg.trim()) {
-          newSecretState.players[uid].messageHistory = [
-             ...(newSecretState.players[uid].messageHistory || []),
-             msg
-          ];
+    // 모든 플레이어에 대해 이번 밤의 행동과 ST 메시지를 기록
+    Object.keys(newPublicState.players).forEach(uid => {
+       const action = secretState.nightActions?.[uid];
+       const targetName1 = action?.targetUid ? roomState.players[action.targetUid]?.name : null;
+       const targetName2 = action?.target2Uid ? roomState.players[action.target2Uid]?.name : null;
+       
+       let actionText = '';
+       if (targetName1 && targetName2) {
+          actionText = `행동: ${targetName1}, ${targetName2} 선택`;
+       } else if (targetName1) {
+          actionText = `행동: ${targetName1} 선택`;
+       } else {
+          actionText = `행동: 없음`;
        }
+
+       const msg = editedSuggestions[uid]?.trim();
+       let finalText = '';
+       if (msg) {
+          finalText = `${actionText}\n수신 정보: ${msg}`;
+       } else {
+          finalText = `${actionText}\n수신 정보: 없음`;
+       }
+
+       newSecretState.players[uid].messageHistory = [
+          ...(newSecretState.players[uid].messageHistory || []),
+          finalText
+       ];
     });
 
     Object.keys(newPublicState.players).forEach(uid => {
