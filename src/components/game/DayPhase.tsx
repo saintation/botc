@@ -44,6 +44,14 @@ export function DayPhase({ isST }: { isST: boolean }) {
 
   const handleVote = async (vote: boolean) => {
     if (isST || !currentNominationKey || !currentNomination) return;
+    
+    // Butler vote restriction
+    if (playerSecret?.character === 'butler' && playerSecret.butlerMasterUid) {
+       if (voters[playerSecret.butlerMasterUid] !== true) {
+          return;
+       }
+    }
+
     const myPlayer = roomState.players[user.uid];
     if (myPlayer.isDead && vote === true && !myPlayer.hasGhostVote) return;
     const updates: Record<string, any> = {};
@@ -250,8 +258,24 @@ export function DayPhase({ isST }: { isST: boolean }) {
           </div>
           {!isST ? (
             <div className="flex gap-4">
-              <Button onClick={() => handleVote(true)} variant={voters[user.uid] === true ? "primary" : "secondary"} size="lg" className="flex-1 font-black h-20 text-xl shadow-xl">YES</Button>
-              <Button onClick={() => handleVote(false)} variant={voters[user.uid] === false ? "danger" : "secondary"} size="lg" className="flex-1 font-black h-20 text-xl shadow-xl">NO</Button>
+              <Button 
+                onClick={() => handleVote(true)} 
+                variant={voters[user.uid] === true ? "primary" : "secondary"} 
+                size="lg" 
+                className="flex-1 font-black h-20 text-xl shadow-xl"
+                disabled={playerSecret?.character === 'butler' && playerSecret.butlerMasterUid ? voters[playerSecret.butlerMasterUid] !== true : false}
+              >
+                YES
+              </Button>
+              <Button 
+                onClick={() => handleVote(false)} 
+                variant={voters[user.uid] === false ? "danger" : "secondary"} 
+                size="lg" 
+                className="flex-1 font-black h-20 text-xl shadow-xl"
+                disabled={playerSecret?.character === 'butler' && playerSecret.butlerMasterUid ? voters[playerSecret.butlerMasterUid] !== true : false}
+              >
+                NO
+              </Button>
             </div>
           ) : (
             <div className="flex flex-col gap-3">

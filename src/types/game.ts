@@ -62,6 +62,7 @@ export interface SecretPlayer {
   } | null;
   isUsed?: boolean; 
   isRedHerring?: boolean; 
+  butlerMasterUid?: string | null;
 }
 
 export interface NightAction {

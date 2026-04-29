@@ -164,6 +164,13 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
     }
   });
 
+  Object.entries(actions).forEach(([uid, action]) => {
+    const p = newSecretState.players[uid];
+    if (p.character === 'butler' && !newPublicState.players[uid].isDead) {
+      if (action.targetUid) newSecretState.players[uid].butlerMasterUid = action.targetUid;
+    }
+  });
+
   // 3. 악마 계승 및 승리 조건 체크는 STNightDashboard.tsx에서 ST가 사망자를 확정한 후에 수행하도록 위임합니다.
 
   const suggestions = getNightSuggestions(publicState, secretState);
