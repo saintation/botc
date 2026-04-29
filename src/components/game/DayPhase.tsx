@@ -45,14 +45,15 @@ export function DayPhase({ isST }: { isST: boolean }) {
   const handleVote = async (vote: boolean) => {
     if (isST || !currentNominationKey || !currentNomination) return;
     
-    // Butler vote restriction
-    if (playerSecret?.character === 'butler' && playerSecret.butlerMasterUid) {
-       if (voters[playerSecret.butlerMasterUid] !== true) {
+    const myPlayer = roomState.players[user.uid];
+
+    // Butler vote restriction (Only applies when Butler is alive)
+    if (playerSecret?.character === 'butler' && !myPlayer?.isDead) {
+       if (!playerSecret.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) {
           return;
        }
     }
 
-    const myPlayer = roomState.players[user.uid];
     if (myPlayer.isDead && vote === true && !myPlayer.hasGhostVote) return;
     const updates: Record<string, any> = {};
     updates[`public/rooms/${roomId}/nominations/${currentNominationKey}/voters/${user.uid}`] = vote;
@@ -269,7 +270,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
                 variant={voters[user.uid] === true ? "primary" : "secondary"} 
                 size="lg" 
                 className="flex-1 font-black h-20 text-xl shadow-xl"
-                disabled={playerSecret?.character === 'butler' && playerSecret.butlerMasterUid ? voters[playerSecret.butlerMasterUid] !== true : false}
+                disabled={playerSecret?.character === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
               >
                 YES
               </Button>
@@ -278,7 +279,7 @@ export function DayPhase({ isST }: { isST: boolean }) {
                 variant={voters[user.uid] === false ? "danger" : "secondary"} 
                 size="lg" 
                 className="flex-1 font-black h-20 text-xl shadow-xl"
-                disabled={playerSecret?.character === 'butler' && playerSecret.butlerMasterUid ? voters[playerSecret.butlerMasterUid] !== true : false}
+                disabled={playerSecret?.character === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
               >
                 NO
               </Button>
