@@ -1,5 +1,10 @@
 {
   "rules": {
+    "admin_auth": {
+      "$password": {
+        ".read": "auth != null"
+      }
+    },
     "public": {
       "rooms": {
         "$roomId": {

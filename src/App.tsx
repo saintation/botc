@@ -1,9 +1,11 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { STLobby } from './components/game/STLobby'
 import { PlayerLobby } from './components/game/PlayerLobby'
 import { useGameStore } from './store/gameStore'
 import { useGameData } from './hooks/useFirebaseSync'
+import { ref, get } from 'firebase/database'
+import { database } from './lib/firebase'
 
 // Lazy load large components
 const DayPhase = lazy(() => import('./components/game/DayPhase').then(m => ({ default: m.DayPhase })));
@@ -21,6 +23,7 @@ function App() {
   const { roomId, roomState, role, setRole, setRoomId } = useGameStore()
 
   const { error: syncError, resetRoom } = useGameData(roomId)
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const resetSession = () => {
     setRole(null);
@@ -31,6 +34,28 @@ function App() {
     if (window.confirm("주의: 방의 모든 기록이 삭제되며 모든 플레이어가 튕겨나갑니다. 정말 초기화하시겠습니까?")) {
        await resetRoom();
        resetSession();
+    }
+  };
+
+  const handleSTLogin = async () => {
+    const pwd = window.prompt("스토리텔러 관리자 암호를 입력하세요:");
+    if (!pwd) return;
+
+    setIsAuthenticating(true);
+    try {
+      const authRef = ref(database, `admin_auth/${pwd}`);
+      const snapshot = await get(authRef);
+      
+      if (snapshot.exists() && snapshot.val() === true) {
+        setRole('st');
+      } else {
+        alert("암호가 일치하지 않거나 권한이 없습니다.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("인증에 실패했습니다. Firebase 규칙을 확인하세요.");
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -81,10 +106,11 @@ function App() {
 
                 <div className="pt-6 border-t border-slate-800/30">
                   <button 
-                    onClick={() => setRole('st')}
-                    className="text-slate-600 hover:text-amber-500/80 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mx-auto"
+                    onClick={handleSTLogin}
+                    disabled={isAuthenticating}
+                    className="text-slate-600 hover:text-amber-500/80 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
                   >
-                    <span className="opacity-50">스토리텔러 관리자 모드</span>
+                    <span className="opacity-50">{isAuthenticating ? '인증 중...' : '스토리텔러 관리자 모드'}</span>
                   </button>
                 </div>
               </div>
