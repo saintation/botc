@@ -145,7 +145,12 @@ export function STNightDashboard() {
             {players.filter(p => !p.isDead).map(p => {
                const action = actions[p.uid];
                const role = secretState.players[p.uid]?.character;
-               if (!['imp', 'poisoner', 'monk', 'fortune_teller', 'butler', 'ravenkeeper'].includes(role || '')) return null;
+               const isNight1 = roomState.dayNumber === 1;
+               const needsTarget = ['poisoner', 'ravenkeeper'].includes(role || '') || (role === 'imp' && !isNight1) || (role === 'monk' && !isNight1);
+               const needsTwoTargets = ['fortune_teller'].includes(role || '');
+               const isButler = role === 'butler';
+
+               if (!needsTarget && !needsTwoTargets && !isButler) return null;
                
                return (
                  <div key={p.uid} className="flex justify-between items-center bg-slate-950/60 p-4 rounded-2xl border border-slate-800/50 shadow-inner group">
