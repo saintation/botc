@@ -39,7 +39,7 @@ export const PlayerRecords = memo(({
 
       {isOpen && (
         <div className="p-6 sm:p-8 pt-0 space-y-4 animate-fade-in border-t border-slate-800/50 mt-2 bg-slate-950/40">
-           <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar mt-4 sm:mt-6">
+           <div className="space-y-3 mt-4 sm:mt-6 pr-2">
               {messageHistory && messageHistory.length > 0 ? (
                  messageHistory.map((msg, i) => (
                    <div key={i} className="p-4 sm:p-5 bg-slate-900/80 rounded-[1.25rem] border border-slate-800 shadow-lg text-sm sm:text-base text-slate-300 italic font-serif leading-relaxed relative overflow-hidden group">

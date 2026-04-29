@@ -95,7 +95,7 @@ export function STLobby() {
           </span>
         </div>
         
-        <ul className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+        <ul className="space-y-2 pr-1">
           {Object.entries(players).map(([uid, player]) => (
             <li key={uid} className="bg-slate-950 p-3 rounded-lg text-slate-300 flex items-center justify-between animate-fade-in border border-slate-800/50">
               <div className="flex items-center gap-3">

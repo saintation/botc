@@ -93,7 +93,7 @@ export function NightPhase({ isST }: { isST: boolean }) {
               {needsTarget || needsTwoTargets || isButler ? (
                  <div className="space-y-4 sm:space-y-6">
                     <p className="text-[11px] sm:text-xs font-black text-slate-400 uppercase tracking-widest">{isButler ? '주인을 선택하세요' : '능력을 사용할 대상을 선택하세요'}</p>
-                    <div className="grid grid-cols-2 gap-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-2 pr-2">
                        {selectablePlayers.map(p => (
                           <button
                             key={p.uid}

@@ -214,7 +214,7 @@ export function STNightDashboard() {
             </button>
          </div>
          
-         <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
+         <div className="space-y-8 pr-3">
             {players.map(p => {
                const secret = secretState.players[p.uid];
                return (

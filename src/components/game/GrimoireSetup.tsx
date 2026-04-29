@@ -248,7 +248,7 @@ export function GrimoireSetup() {
            </div>
         )}
 
-        <div className="space-y-1.5 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="space-y-1.5 pr-2">
           {orderedPlayers.map((p, index) => (
             <div key={p.uid} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 flex items-center gap-3 transition-colors hover:bg-slate-900/50">
               <div className="flex flex-col gap-1">
