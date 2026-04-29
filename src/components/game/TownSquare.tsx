@@ -18,7 +18,9 @@ const PlayerToken = memo(({
   selectedNominator, 
   onClick,
   isVoting,
-  role 
+  role,
+  isNominated,
+  hasVotedYes
 }: any) => {
   const radius = 145;
   const pos = useMemo(() => {
@@ -53,7 +55,8 @@ const PlayerToken = memo(({
         showFullInfo && secret?.alignment === 'evil' && !isDead && "border-rose-600 shadow-[0_0_25px_rgba(225,29,72,0.5)] ring-2 ring-rose-500/20",
         showFullInfo && secret?.alignment === 'good' && !isDead && "border-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.4)] ring-2 ring-sky-500/10",
         isSelectingNominator && "border-sky-400 ring-4 ring-sky-400/30 scale-110 shadow-[0_0_30px_rgba(56,189,248,0.6)] z-20",
-        isBeingTargeted && "hover:border-rose-500 hover:ring-4 hover:ring-rose-500/30"
+        isBeingTargeted && "hover:border-rose-500 hover:ring-4 hover:ring-rose-500/30",
+        isNominated && "border-amber-400 ring-4 ring-amber-400/30 shadow-[0_0_20px_rgba(251,191,36,0.5)]"
       )}>
         {showFullInfo ? (
            <div className={cn(
@@ -78,13 +81,21 @@ const PlayerToken = memo(({
             <span className="text-sm text-slate-950 font-black italic">!</span>
           </div>
         )}
+
+        {hasVotedYes && (
+          <div className="absolute -top-2 -left-2 w-6 h-6 bg-emerald-500 rounded-full border-2 border-slate-950 flex items-center justify-center shadow-lg z-30">
+            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex flex-col items-center gap-1 max-w-[100px]">
         <span className={cn(
           "text-[11px] font-black uppercase tracking-widest truncate w-full text-center px-2 py-0.5 rounded transition-all",
           isDead ? "text-slate-700" : "text-slate-200 bg-slate-900/40 border border-slate-800 shadow-sm",
-          isSelectingNominator && "text-sky-400 bg-sky-950 border-sky-500/50"
+          isSelectingNominator && "text-sky-400 bg-sky-950 border-sky-500/50",
+          isNominated && "text-amber-400 bg-amber-950 border-amber-500/50",
+          hasVotedYes && "text-emerald-400 bg-emerald-950 border-emerald-500/50"
         )}>
           {player.name}
         </span>
@@ -145,6 +156,16 @@ export function TownSquare() {
   const isVoting = roomState.status === 'voting';
   const usedNominators = roomState.usedNominators || [];
   const usedTargets = roomState.usedTargets || [];
+
+  const activeNominationKey = roomState.nominations ? Object.keys(roomState.nominations)[0] : null;
+  const activeNomination = activeNominationKey && roomState.nominations ? roomState.nominations[activeNominationKey] : null;
+  
+  const lastHistory = roomState.nominationHistory?.[roomState.nominationHistory.length - 1];
+
+  const currentTargetUid = isVoting && activeNomination ? activeNomination.targetUid : (lastHistory?.targetUid || null);
+  const currentVoterUids = isVoting && activeNomination 
+    ? Object.keys(activeNomination.voters || {}).filter(uid => activeNomination.voters[uid] === true)
+    : (lastHistory?.voterUids || []);
 
   const handlePlayerClick = async (clickedUid: string) => {
     if (role !== 'st' || isVoting || roomState.status === 'end') return;
@@ -274,6 +295,8 @@ export function TownSquare() {
             onClick={handlePlayerClick}
             isVoting={isVoting}
             role={role}
+            isNominated={currentTargetUid === p.uid}
+            hasVotedYes={currentVoterUids.includes(p.uid)}
           />
         ))}
       </div>

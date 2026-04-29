@@ -19,10 +19,12 @@ export interface Nomination {
 }
 
 export interface NominationRecord {
+  targetUid: string;
   targetName: string;
   nominatorName: string;
   yesCount: number;
   voterNames: string[];
+  voterUids: string[];
 }
 
 export interface GameEvent {

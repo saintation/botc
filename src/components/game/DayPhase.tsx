@@ -75,11 +75,17 @@ export function DayPhase({ isST }: { isST: boolean }) {
       .filter(([_, voted]) => voted === true)
       .map(([uid]) => roomState.players[uid]?.name || "Unknown");
 
+    const voterUids = Object.entries(currentNomination.voters)
+      .filter(([_, voted]) => voted === true)
+      .map(([uid]) => uid);
+
     const record = {
+      targetUid: currentNomination.targetUid,
       targetName: roomState.players[currentNomination.targetUid]?.name || "Unknown",
       nominatorName: roomState.players[currentNomination.nominatorUid]?.name || "Unknown",
       yesCount: yesCount,
-      voterNames: voterNames
+      voterNames: voterNames,
+      voterUids: voterUids
     };
 
     const history = roomState.nominationHistory || [];
