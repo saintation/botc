@@ -166,7 +166,8 @@ export function resolveNightActions(publicState: PublicRoomState, secretState: S
 
   Object.entries(actions).forEach(([uid, action]) => {
     const p = newSecretState.players[uid];
-    if (p.character === 'butler' && !newPublicState.players[uid].isDead) {
+    const effectiveCharacter = p.fakeCharacter || p.character;
+    if (effectiveCharacter === 'butler' && !newPublicState.players[uid].isDead) {
       if (action.targetUid) newSecretState.players[uid].butlerMasterUid = action.targetUid;
     }
   });
