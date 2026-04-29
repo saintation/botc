@@ -27,7 +27,6 @@ export function DayPhase({ isST }: { isST: boolean }) {
 
   const voters = currentNomination?.voters || {};
   const yesCount = Object.values(voters).filter(v => v === true).length;
-  const noCount = Object.values(voters).filter(v => v === false).length;
 
   const usedNominators = roomState.usedNominators || [];
   const usedTargets = roomState.usedTargets || [];
@@ -248,43 +247,41 @@ export function DayPhase({ isST }: { isST: boolean }) {
              <span className="text-slate-500 text-[11px] uppercase font-bold mb-2 block tracking-widest">Nominator: {roomState.players[currentNomination.nominatorUid]?.name}</span>
              <span className="font-black text-white text-3xl uppercase tracking-tighter border-b-4 border-sky-500/20 pb-1 inline-block">{roomState.players[currentNomination.targetUid]?.name}</span>
           </p>
-          <div className="flex justify-center gap-10 mb-10">
-            <div className="flex flex-col items-center bg-slate-900/60 p-6 rounded-3xl border border-sky-500/20 w-32 shadow-inner relative">
-              <span className="text-5xl font-black text-sky-400 mb-2">{yesCount}</span>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Yes (Min: {majorityNeeded})</span>
+          <div className="flex justify-center mb-10">
+            <div className="flex flex-col items-center bg-slate-900/60 p-8 rounded-[2rem] border border-sky-500/20 shadow-inner relative min-w-[160px]">
+              <span className="text-7xl font-black text-sky-400 mb-3">{yesCount}</span>
+              <span className="text-xs font-black text-slate-500 uppercase tracking-widest">찬성 (최소 필요: {majorityNeeded})</span>
               {roomState.players[user.uid]?.isDead && roomState.players[user.uid]?.hasGhostVote && (
-                 <div className="absolute -top-4 bg-amber-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-lg">투표 가능</div>
+                 <div className="absolute -top-4 bg-amber-500 text-slate-950 text-[10px] font-black px-3 py-1 rounded-full animate-pulse shadow-lg">유령 투표권 있음</div>
               )}
               {roomState.players[user.uid]?.isDead && !roomState.players[user.uid]?.hasGhostVote && voters[user.uid] === true && (
-                 <div className="absolute -top-4 bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg">권한 소모됨</div>
+                 <div className="absolute -top-4 bg-rose-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg">투표권 소모됨</div>
               )}
-            </div>
-            <div className="flex flex-col items-center bg-slate-900/60 p-6 rounded-3xl border border-rose-500/20 w-32 shadow-inner">
-              <span className="text-5xl font-black text-rose-400 mb-2">{noCount}</span>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">No</span>
             </div>
           </div>
           {!isST ? (
             <div className="flex flex-col gap-3">
               <div className="flex gap-4">
-                <Button 
-                  onClick={() => handleVote(true)} 
-                  variant={voters[user.uid] === true ? "primary" : "secondary"} 
-                  size="lg" 
-                  className="flex-1 font-black h-20 text-xl shadow-xl transition-all"
-                  disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
-                >
-                  YES
-                </Button>
-                <Button 
-                  onClick={() => handleVote(false)} 
-                  variant={voters[user.uid] === false ? "danger" : "secondary"} 
-                  size="lg" 
-                  className="flex-1 font-black h-20 text-xl shadow-xl transition-all"
-                  disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
-                >
-                  NO
-                </Button>
+                {voters[user.uid] === true ? (
+                  <Button 
+                    onClick={() => handleVote(false)} 
+                    variant="danger" 
+                    size="lg" 
+                    className="flex-1 font-black h-20 text-xl shadow-xl transition-all border-rose-500/30"
+                  >
+                    투표 취소 (Cancel)
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => handleVote(true)} 
+                    variant="primary" 
+                    size="lg" 
+                    className="flex-1 font-black h-20 text-xl shadow-xl transition-all"
+                    disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
+                  >
+                    찬성 투표 (Vote)
+                  </Button>
+                )}
               </div>
               {(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead && (
                  <div className="text-center p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 shadow-inner">
