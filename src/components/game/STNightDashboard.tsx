@@ -18,6 +18,7 @@ export function STNightDashboard() {
   
   const [editedSuggestions, setEditedSuggestions] = useState<Record<string, string>>({});
   const [pendingDeaths, setPendingDeaths] = useState<string[]>([]);
+  const [pendingPoisoned, setPendingPoisoned] = useState<string | null>(null);
 
   useEffect(() => {
     if (secretState?.nightResults) {
@@ -29,11 +30,14 @@ export function STNightDashboard() {
     }
     
     if (roomState && secretState) {
-       const { newPublicState } = resolveNightActions(roomState, secretState);
+       const { newPublicState, newSecretState } = resolveNightActions(roomState, secretState);
        const deaths = Object.keys(newPublicState.players).filter(uid => 
           newPublicState.players[uid].isDead && !roomState.players[uid].isDead
        );
        setPendingDeaths(deaths);
+       
+       const poisonedUid = Object.keys(newSecretState.players).find(uid => newSecretState.players[uid].isPoisoned);
+       setPendingPoisoned(poisonedUid || null);
     }
   }, [roomState, secretState]);
 
@@ -233,7 +237,7 @@ export function STNightDashboard() {
                           </span>
                        </div>
                        <div className="flex gap-1.5">
-                          {secret?.isPoisoned && <span className="text-[9px] bg-purple-600/20 text-purple-400 border border-purple-600/30 px-2 py-0.5 rounded-full font-black uppercase shadow-sm">독</span>}
+                          {pendingPoisoned === p.uid && <span className="text-[9px] bg-purple-600/20 text-purple-400 border border-purple-600/30 px-2 py-0.5 rounded-full font-black uppercase shadow-sm animate-pulse">독</span>}
                           {secret?.isDrunk && <span className="text-[9px] bg-amber-600/20 text-amber-500 border border-amber-600/30 px-2 py-0.5 rounded-full font-black uppercase shadow-sm">취함</span>}
                           {p.isDead && p.hasGhostVote && <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-black uppercase animate-pulse">유령 표</span>}
                        </div>
