@@ -265,25 +265,40 @@ export function DayPhase({ isST }: { isST: boolean }) {
             </div>
           </div>
           {!isST ? (
-            <div className="flex gap-4 relative">
-              <Button 
-                onClick={() => handleVote(true)} 
-                variant={voters[user.uid] === true ? "primary" : "secondary"} 
-                size="lg" 
-                className="flex-1 font-black h-20 text-xl shadow-xl"
-                disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
-              >
-                YES
-              </Button>
-              <Button 
-                onClick={() => handleVote(false)} 
-                variant={voters[user.uid] === false ? "danger" : "secondary"} 
-                size="lg" 
-                className="flex-1 font-black h-20 text-xl shadow-xl"
-                disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
-              >
-                NO
-              </Button>
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-4">
+                <Button 
+                  onClick={() => handleVote(true)} 
+                  variant={voters[user.uid] === true ? "primary" : "secondary"} 
+                  size="lg" 
+                  className="flex-1 font-black h-20 text-xl shadow-xl transition-all"
+                  disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
+                >
+                  YES
+                </Button>
+                <Button 
+                  onClick={() => handleVote(false)} 
+                  variant={voters[user.uid] === false ? "danger" : "secondary"} 
+                  size="lg" 
+                  className="flex-1 font-black h-20 text-xl shadow-xl transition-all"
+                  disabled={(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead ? (!playerSecret?.butlerMasterUid || voters[playerSecret.butlerMasterUid] !== true) : false}
+                >
+                  NO
+                </Button>
+              </div>
+              {(playerSecret?.fakeCharacter || playerSecret?.character) === 'butler' && !roomState.players[user.uid]?.isDead && (
+                 <div className="text-center p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 shadow-inner">
+                    <p className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1">집사 제약 (Butler Restriction)</p>
+                    <p className="text-[11px] text-slate-300 font-medium">
+                      {playerSecret?.butlerMasterUid 
+                        ? voters[playerSecret.butlerMasterUid] === true
+                           ? <span className="text-emerald-400">주인({roomState.players[playerSecret.butlerMasterUid]?.name})이 찬성했습니다. 이제 투표할 수 있습니다!</span>
+                           : <span className="text-amber-400/80">주인({roomState.players[playerSecret.butlerMasterUid]?.name})의 찬성 투표를 기다리고 있습니다...</span>
+                        : <span className="text-rose-400">어젯밤 주인을 선택하지 않아 오늘 투표할 수 없습니다.</span>
+                      }
+                    </p>
+                 </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-3">
