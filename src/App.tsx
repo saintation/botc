@@ -97,36 +97,6 @@ function App() {
               {user && role && isDayPhase && <DayPhase isST={role === 'st'} />}
               {user && role && isNightPhase && <NightPhase isST={role === 'st'} />}
             </Suspense>
-
-            {/* Victory Screen */}
-            {roomState?.status === 'end' && (
-              <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md overflow-y-auto flex p-4 animate-fade-in">
-                 <div className={`m-auto bg-slate-900 border-2 p-8 sm:p-10 rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full space-y-8 relative overflow-hidden ${roomState.winner === 'good' ? "border-sky-500/50 shadow-sky-500/20" : "border-rose-600/50 shadow-rose-600/20"}`}>
-                    
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                       <h2 className={`text-4xl sm:text-5xl font-black uppercase tracking-tighter italic leading-none ${roomState.winner === 'good' ? "text-sky-400" : "text-rose-500"}`}>
-                         {roomState.winner === 'good' ? '선의 승리' : '악의 승리'}
-                       </h2>
-                       <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">게임 종료</p>
-                    </div>
-
-                    <div className="py-8 bg-slate-950/80 rounded-[2rem] border border-slate-800 shadow-inner px-5">
-                       <p className="text-sm text-slate-200 font-medium leading-relaxed break-keep-all">
-                          {roomState.winner === 'good' 
-                            ? "악마가 처단되었습니다. 마을에 평화가 찾아왔습니다." 
-                            : "그림자가 마을을 삼켰습니다. 악의 진영이 승리했습니다."}
-                       </p>
-                    </div>
-
-                    <button 
-                      onClick={role === 'st' ? handleGlobalReset : resetSession} 
-                      className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-lg shadow-xl transition-all active:scale-95 ${roomState.winner === 'good' ? "bg-sky-500 text-slate-950 hover:bg-sky-400" : "bg-rose-600 text-white hover:bg-rose-500"}`}
-                    >
-                      {role === 'st' ? '방 전체 초기화' : '로비로 돌아가기'}
-                    </button>
-                 </div>
-              </div>
-            )}
           </div>
           
           {role && (!roomState || roomState.status === 'lobby' || roomState.status === 'setup') && (
@@ -139,6 +109,36 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Victory Screen Modal (Escaped from overflow-hidden) */}
+      {roomState?.status === 'end' && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md overflow-y-auto flex p-4 animate-fade-in">
+           <div className={`m-auto bg-slate-900 border-2 p-8 sm:p-10 rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full space-y-8 relative overflow-hidden ${roomState.winner === 'good' ? "border-sky-500/50 shadow-sky-500/20" : "border-rose-600/50 shadow-rose-600/20"}`}>
+              
+              <div className="flex flex-col items-center justify-center space-y-3">
+                 <h2 className={`text-4xl sm:text-5xl font-black uppercase tracking-tighter italic leading-none ${roomState.winner === 'good' ? "text-sky-400" : "text-rose-500"}`}>
+                   {roomState.winner === 'good' ? '선의 승리' : '악의 승리'}
+                 </h2>
+                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">게임 종료</p>
+              </div>
+
+              <div className="py-8 bg-slate-950/80 rounded-[2rem] border border-slate-800 shadow-inner px-5">
+                 <p className="text-sm text-slate-200 font-medium leading-relaxed break-keep-all">
+                    {roomState.winner === 'good' 
+                      ? "악마가 처단되었습니다. 마을에 평화가 찾아왔습니다." 
+                      : "그림자가 마을을 삼켰습니다. 악의 진영이 승리했습니다."}
+                 </p>
+              </div>
+
+              <button 
+                onClick={role === 'st' ? handleGlobalReset : resetSession} 
+                className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-lg shadow-xl transition-all active:scale-95 ${roomState.winner === 'good' ? "bg-sky-500 text-slate-950 hover:bg-sky-400" : "bg-rose-600 text-white hover:bg-rose-500"}`}
+              >
+                {role === 'st' ? '방 전체 초기화' : '로비로 돌아가기'}
+              </button>
+           </div>
+        </div>
+      )}
 
       {/* Admin Reset Button (Nuclear Reset) */}
       {role === 'st' && roomId && (
