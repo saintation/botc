@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { ref, onValue, update, set } from 'firebase/database';
 import { database } from '../lib/firebase';
 import { useGameStore } from '../store/gameStore';
-import type { PublicRoomState, SecretRoomState, SecretPlayer, NightAction, NightResult } from '../types/game';
+import type { PublicRoomState, SecretRoomState, SecretPlayer, NightAction } from '../types/game';
 
 // Hook for public game data
 export function useGameData(roomId: string | null) {
@@ -100,11 +100,9 @@ export function useSecretData(roomId: string | null, isST: boolean) {
 // Hook for individual players to access their own secret data and actions
 export function usePlayerSecretData(roomId: string | null, uid: string | null) {
   const [playerSecret, setPlayerSecret] = useState<SecretPlayer | null>(null);
-  const [nightResult, setNightResult] = useState<NightResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
   
   const lastPlayerRef = useRef<string>("");
-  const lastResultRef = useRef<string>("");
 
   useEffect(() => {
     if (!roomId || !uid) return;
@@ -123,23 +121,8 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
       (err) => setError(err)
     );
 
-    const resultRef = ref(database, `secret/rooms/${roomId}/nightResults/${uid}`);
-    const unsubscribeResult = onValue(
-      resultRef,
-      (snapshot) => {
-        const data = snapshot.val() as NightResult;
-        const stringified = JSON.stringify(data);
-        if (stringified !== lastResultRef.current) {
-          lastResultRef.current = stringified;
-          setNightResult(data);
-        }
-      },
-      (err) => setError(err)
-    );
-
     return () => {
       unsubscribePlayer();
-      unsubscribeResult();
     };
   }, [roomId, uid]);
 
@@ -149,6 +132,6 @@ export function usePlayerSecretData(roomId: string | null, uid: string | null) {
     await set(actionRef, action);
   };
 
-  return { playerSecret, nightResult, error, submitNightAction };
+  return { playerSecret, error, submitNightAction };
 }
 
