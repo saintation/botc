@@ -16,7 +16,7 @@
     "secret": {
       "rooms": {
         "$roomId": {
-          ".read": "auth != null && (data.child('stUid').val() === auth.uid || data.child('players').child(auth.uid).child('character').val() === 'spy')",
+          ".read": "auth != null && (!data.exists() || data.child('stUid').val() === auth.uid || data.child('players').child(auth.uid).child('character').val() === 'spy')",
           ".write": "auth != null && (!data.exists() || data.child('stUid').val() === auth.uid)",
           
           "players": {
